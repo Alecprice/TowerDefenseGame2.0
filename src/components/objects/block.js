@@ -1,0 +1,39 @@
+import { collision } from '../utils/utils';
+
+export function Block(x, y, type) {
+    this.x = x;
+    this.y = y;
+    this.type = type;
+    this.width = 50;
+    this.height = 50;
+    this.tower = false;
+    this.hover = false;
+}
+
+Block.prototype = {
+    draw: function (ctx) {
+        if (this.type === 0) {
+            ctx.strokeStyle = 'white';
+            ctx.strokeRect(this.x, this.y, this.width, this.height);
+        } else {
+            ctx.fillStyle = 'black';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+        if (this.hover && this.type !== 1) {
+            ctx.fillStyle = "rgba(255, 255, 255, .5)";
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    },
+    mouseIsOver: function (mouse) {
+        if (mouse.x && mouse.y && collision(this, mouse)) {
+            this.hover = true;
+        } else {
+            this.hover = false;
+        }
+    },
+    removeSoldTowers: function () {
+        if (this.tower && this.tower.sold) {
+            this.tower = false;
+        }
+    }
+}
