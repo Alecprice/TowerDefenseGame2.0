@@ -1,0 +1,624 @@
+
+@font-face {
+    font-family: arcade;
+    src: url('./components/assets/fonts/Bungee-Regular.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: title;
+    src: url('./components/assets/fonts/Bungee-Regular.ttf') format('truetype');
+}
+
+@font-face{
+    font-family: pixel;
+    src: url('./components/assets/fonts/VT323-Regular.ttf') format('truetype');
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #1c1c1c;
+    margin: 0;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    font-family: pixel;
+}
+
+html {
+    color-scheme: dark;
+    touch-action: manipulation;
+}
+
+h1 {
+    font-family: title;
+    text-align: center;
+    color: #f0f0f0f0;
+    font-size: 60pt;
+    padding-top: 40px;
+}
+
+/* Compact heading used on the in-game screen so the canvas can take
+   center stage instead of a large title eating vertical space. */
+.game-title {
+    font-size: 28pt;
+    padding-top: 14px;
+    padding-bottom: 4px;
+}
+
+h2 {
+    font-family: title;
+    text-align: center;
+    color: #f0f0f0f0;
+    font-size: 40pt;
+    padding-top: 60px;
+}
+
+h3, h4 {
+    font-family: title;
+    text-align: center;
+    color: #f0f0f0f0;
+    font-size: 24pt;
+}
+
+.container {
+    text-align: center;
+    padding-bottom: 25px;
+    display: block;
+    margin: auto;
+}
+
+/* Small footer variant, used for the in-game Leaderboard link so it
+   reads as a minor footer rather than competing with the canvas. */
+.container.game-footer {
+    padding-top: 6px;
+    padding-bottom: 14px;
+}
+
+.container.game-footer .btn {
+    font-size: 20px;
+}
+
+.btn {
+    font-family: arcade;
+    font-size: 40px;
+    color: #f0f0f0f0;
+}
+
+.sbtn {
+    font-family: arcade;
+    font-size: 28px;
+    color: #f0f0f0f0;
+}
+
+.MuiInputLabel-root {
+    font-family: pixel !important;
+    color: #f0f0f0f0 !important;
+}
+
+.MuiOutlinedInput-root {
+    font-family: pixel !important;
+    color: #f0f0f0f0 !important;
+}
+
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+    border-width: 2px !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+    border-color: #f0f0f080 !important;
+}
+
+.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #fffffff0 !important;
+}
+
+.panel {
+    width: 200px;
+    min-width: 160px;
+    max-width: 200px;
+    flex: 0 0 200px;
+    height: 600px;
+    background-color: dimgrey;
+    display: flex;
+    flex-direction:column;
+}
+
+.panel-top {
+    padding-top: 1em;
+}
+
+img:hover {
+    cursor: pointer;
+}
+
+.numbers {
+    padding-right: 5px;
+}
+
+.towers {
+    display: grid;
+    grid: 75px 75px 75px / auto auto auto;
+    padding-top: 5px;
+}
+
+.draggable-tower {
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+    position: relative;
+}
+
+.draggable-tower.locked {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.draggable-tower.insufficient-funds {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.tower-lock {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 24px;
+    height: 24px;
+    background-color: #c00;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.tower-upgrade-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #2e7d32;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: pixel;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.tower-cost {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-family: pixel;
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+.game {
+    width: 100%;
+    max-width: 1300px;
+    text-align: center;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    padding-bottom: 1em;
+    margin: auto;
+    align-items: flex-start;
+    gap: 0.75em;
+}
+
+.game canvas {
+    width: 100%;
+    max-width: 1040px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    touch-action: none;
+    background-color: black;
+    flex: 1 1 auto;
+}
+
+.sellButton {
+    display: none;
+}
+
+.upgradeButton {
+    display: none;
+    margin-top: 4px;
+}
+
+.sell,
+.upgrade,
+.play,
+.pause,
+.menu {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 18px;
+    padding: 8px 14px;
+    touch-action: manipulation;
+}
+
+.upgrade {
+    background-color: #2e7d32;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+
+.map-select {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.waves-scores-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5em;
+    width: 100%;
+    max-width: 1300px;
+    margin: auto;
+    padding: 6px 0;
+}
+
+.wave-label {
+    color: red;
+    display: inline-block;
+    padding: 0;
+    width: auto;
+    height: auto;
+    font-size: 20px;
+    font-family: pixel;
+}
+
+.score-label {
+    color: aqua;
+    width: auto;
+    padding: 0;
+    height: auto;
+    font-size: 20px;
+    font-family: pixel;
+}
+
+.panel-right {
+    float: right;
+}
+
+.towers {
+    float: left;
+    width: 100%;
+    padding-top: 2em;
+}
+
+.money,
+.lives {
+    float: left;
+    width: 100%;
+    font-family: pixel;
+    font-size: 26px;
+}
+
+.panel-bottom {
+    display: grid;
+    grid: 100px / auto;
+}
+
+.play-pause {
+    margin-top: 100px;
+}
+
+.timer {
+    width: auto;
+    color: white;
+    text-align: center;
+    font-family: pixel;
+    height: auto;
+    font-size: 20px;
+    font-family: pixel;
+    padding: 0;
+}
+
+.popup-container {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #19131ee1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(3px);
+    z-index: 1000;
+}
+
+.popup {
+    width: 40em;
+    max-width: 90vw;
+    height: auto;
+    background-color: #757575ba;
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 0 1rem 0 rgba(0, 0, 0, 0.2);
+}
+
+.popup-header {
+    position: relative;
+}
+
+.popup-title{
+    font-size: 35pt;
+    padding-top: .5rem;
+}
+
+.popup-content {
+    text-align: center;
+    font-family: pixel;
+    padding: 1rem;
+}
+
+.popup-footer {
+    text-align: center;
+    padding: 1rem;
+}
+
+.pause-menu-footer {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.popup-button {
+    font-size: 20pt;
+}
+
+.menu {
+    background-color: #37474f;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+
+.scores-note {
+    text-align: center;
+    color: #cfcfcf;
+    font-family: pixel;
+}
+
+.scores-table {
+    margin: 0 auto 20px;
+    color: #f0f0f0;
+    border-collapse: collapse;
+    width: 100%;
+    max-width: 500px;
+}
+
+.scores-table th,
+.scores-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #444;
+    text-align: center;
+}
+
+@media (max-width: 900px) {
+    h1 {
+        font-size: 34pt;
+        padding-top: 20px;
+    }
+
+    h2 {
+        font-size: 26pt;
+        padding-top: 30px;
+    }
+
+    .wave-label,
+    .score-label {
+        padding: 12px;
+        font-size: 22px;
+        width: auto;
+    }
+
+    .game canvas {
+        max-width: 900px;
+    }
+}
+
+/* Only stack the panel below the canvas on narrow phone-width screens;
+   tablets and up keep the map on the left / towers on the right. */
+@media (max-width: 640px) {
+    .game {
+        flex-direction: column;
+        flex-wrap: wrap;
+        align-items: center;
+        padding-bottom: 2em;
+    }
+
+    .panel {
+        width: 100%;
+        max-width: 900px;
+        min-width: 0;
+        flex: 1 1 auto;
+        height: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        padding: 0.5em;
+    }
+
+    .panel-top,
+    .panel-mid,
+    .panel-bottom {
+        width: 100%;
+    }
+
+    .towers {
+        grid: 70px / repeat(4, 1fr);
+        justify-items: center;
+    }
+
+    .play-pause {
+        margin-top: 0.5em;
+    }
+
+    .money,
+    .lives {
+        font-size: 22px;
+    }
+
+    .popup-title {
+        font-size: 24pt;
+    }
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 26pt;
+    }
+
+    .towers {
+        grid: 60px / repeat(4, 1fr);
+    }
+}
+
+.tutorial-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.tutorial-modal {
+    background-color: #2c2c2c;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 2px solid #4a4a4a;
+}
+
+.tutorial-title {
+    font-family: title;
+    font-size: 24pt;
+    color: #f0f0f0;
+    margin: 0 0 15px 0;
+    text-align: center;
+}
+
+.tutorial-content {
+    font-family: pixel;
+    font-size: 14px;
+    color: #cfcfcf;
+    line-height: 1.6;
+    margin: 0 0 20px 0;
+    text-align: center;
+}
+
+.tutorial-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 20px 0;
+    gap: 10px;
+}
+
+.tutorial-btn {
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: pixel;
+    font-size: 12px;
+    min-width: 80px;
+}
+
+.tutorial-btn:hover:not(:disabled) {
+    background-color: #357abd;
+}
+
+.tutorial-btn:disabled {
+    background-color: #333;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.tutorial-page-counter {
+    font-family: pixel;
+    color: #cfcfcf;
+    font-size: 12px;
+}
+
+.tutorial-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #4a4a4a;
+}
+
+.tutorial-checkbox {
+    display: flex;
+    align-items: center;
+    color: #cfcfcf;
+    font-family: pixel;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.tutorial-close-btn {
+    background-color: #2e7d32;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: pixel;
+    font-size: 12px;
+}
+
+.tutorial-close-btn:hover {
+    background-color: #1e5a1f;
+}
+
+.credits {
+    text-align: center;
+    margin-top: 40px;
+    padding: 20px;
+    color: #8a8a8a;
+    font-family: pixel;
+    font-size: 12px;
+}
+
+.credits a {
+    color: #4a90e2;
+    text-decoration: none;
+}
+
+.credits a:hover {
+    text-decoration: underline;
+}
