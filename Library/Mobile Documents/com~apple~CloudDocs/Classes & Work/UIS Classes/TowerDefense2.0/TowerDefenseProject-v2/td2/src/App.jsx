@@ -1,5 +1,6 @@
 import React from 'react';
 import HomePage from './components/pages/HomePage';
+import MapSelectPage from './components/pages/MapSelectPage';
 import LoginPage from './components/pages/LoginPage';
 import GamePage from './components/pages/GamePage';
 import ScoresPage from './components/pages/ScoresPage';
@@ -16,6 +17,7 @@ const App = () => {
             <Container maxWidth="lg">
                 <Routes>
                     <Route path="/" element={<HomePage />} />
+                    <Route path="/play" element={<MapSelectPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/game" element={<GamePage />} />
                     <Route path="/scores" element={<ScoresPage />} />

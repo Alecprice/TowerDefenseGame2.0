@@ -1,4 +1,5 @@
 
+import { gameSpeed } from '../utils/gameSpeed';
 import circleImg from "./circle.png";
 import boltImg from '../assets/images/projectiles/proj1_bolt.png';
 import iceImg from '../assets/images/projectiles/proj2_ice.png';
@@ -48,12 +49,11 @@ Projectile.prototype = {
             let distX = this.target.mid.x - this.x;
             let distY = this.target.mid.y - this.y;
             let angle = Math.atan2(distY, distX);
+            const step = this.speed * gameSpeed.value;
 
-            this.x += this.speed * Math.cos(angle);
-            this.y += this.speed * Math.sin(angle);
-            //console.log((distX < 0 ? -distX : distX) + (distY < 0 ? -distY : distY));
-            //console.log(distY);
-            if ((distX < 0 ? -distX : distX) + (distY < 0 ? -distY : distY) < this.speed) {
+            this.x += step * Math.cos(angle);
+            this.y += step * Math.sin(angle);
+            if ((distX < 0 ? -distX : distX) + (distY < 0 ? -distY : distY) < step) {
                 this.target.hit(this);
                 this.end = true;
             }

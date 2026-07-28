@@ -1,21 +1,45 @@
+import { gameSpeed } from '../utils/gameSpeed';
+import { mapTheme } from '../utils/mapTheme';
 import circleImg from "./circle.png";
 import type1Image from '../assets/images/Type1.png';
 import type2Image from '../assets/images/Type2.png';
 import type3Image from '../assets/images/enemies/Type3.png';
 import type4Image from '../assets/images/enemies/Type4.png';
 import type5Image from '../assets/images/enemies/Type5.png';
-const circle = new Image();
-circle.src = circleImg;
-const type1 = new Image();
-type1.src = type1Image;
-const type2 = new Image();
-type2.src = type2Image;
-const type3 = new Image();
-type3.src = type3Image;
-const type4 = new Image();
-type4.src = type4Image;
-const type5 = new Image();
-type5.src = type5Image;
+
+import type1Desert from '../assets/images/enemies/Type1_desert.png';
+import type2Desert from '../assets/images/enemies/Type2_desert.png';
+import type3Desert from '../assets/images/enemies/Type3_desert.png';
+import type4Desert from '../assets/images/enemies/Type4_desert.png';
+import type5Desert from '../assets/images/enemies/Type5_desert.png';
+
+import type1Snow from '../assets/images/enemies/Type1_snow.png';
+import type2Snow from '../assets/images/enemies/Type2_snow.png';
+import type3Snow from '../assets/images/enemies/Type3_snow.png';
+import type4Snow from '../assets/images/enemies/Type4_snow.png';
+import type5Snow from '../assets/images/enemies/Type5_snow.png';
+
+import type1Volcanic from '../assets/images/enemies/Type1_volcanic.png';
+import type2Volcanic from '../assets/images/enemies/Type2_volcanic.png';
+import type3Volcanic from '../assets/images/enemies/Type3_volcanic.png';
+import type4Volcanic from '../assets/images/enemies/Type4_volcanic.png';
+import type5Volcanic from '../assets/images/enemies/Type5_volcanic.png';
+
+function loadImg(src) {
+    const img = new Image();
+    img.src = src;
+    return img;
+}
+
+const circle = loadImg(circleImg);
+
+// enemySprites[theme][type] -> HTMLImageElement
+const enemySprites = {
+    grass: { 1: loadImg(type1Image), 2: loadImg(type2Image), 3: loadImg(type3Image), 4: loadImg(type4Image), 5: loadImg(type5Image) },
+    desert: { 1: loadImg(type1Desert), 2: loadImg(type2Desert), 3: loadImg(type3Desert), 4: loadImg(type4Desert), 5: loadImg(type5Desert) },
+    snow: { 1: loadImg(type1Snow), 2: loadImg(type2Snow), 3: loadImg(type3Snow), 4: loadImg(type4Snow), 5: loadImg(type5Snow) },
+    volcanic: { 1: loadImg(type1Volcanic), 2: loadImg(type2Volcanic), 3: loadImg(type3Volcanic), 4: loadImg(type4Volcanic), 5: loadImg(type5Volcanic) },
+};
 
 
 export function Enemy(x, y, type) {
@@ -79,20 +103,10 @@ export function Enemy(x, y, type) {
 
 Enemy.prototype = {
     draw: function (ctx) {
-        if (this.type === 1) {
-            ctx.drawImage(type1, this.x, this.y);
-        }
-        else if (this.type === 2) {
-            ctx.drawImage(type2, this.x, this.y);
-        }
-        else if (this.type === 3) {
-            ctx.drawImage(type3, this.x, this.y);
-        }
-        else if (this.type === 4) {
-            ctx.drawImage(type4, this.x, this.y);
-        }
-        else if (this.type === 5) {
-            ctx.drawImage(type5, this.x, this.y, this.width, this.height);
+        const set = enemySprites[mapTheme.value] || enemySprites.grass;
+        const sprite = set[this.type];
+        if (sprite) {
+            ctx.drawImage(sprite, this.x, this.y, this.width, this.height);
         }
         else {
             ctx.drawImage(circle, this.x, this.y);
@@ -110,14 +124,15 @@ Enemy.prototype = {
             let distX = path[this.waypoint].x - this.x;
             let distY = path[this.waypoint].y - this.y;
             let angle = Math.atan2(distY, distX);
+            const step = this.speed * gameSpeed.value;
 
-            this.x += this.speed * Math.cos(angle);
-            this.y += this.speed * Math.sin(angle);
+            this.x += step * Math.cos(angle);
+            this.y += step * Math.sin(angle);
             this.mid.x = this.x + this.width / 2;
             this.mid.y = this.y + this.height / 2;
-            this.distance += this.speed;
+            this.distance += step;
 
-            if ((distX < 0 ? -distX : distX) + (distY < 0 ? -distY : distY) < this.speed) {
+            if ((distX < 0 ? -distX : distX) + (distY < 0 ? -distY : distY) < step) {
                 this.waypoint++;
             }
         }

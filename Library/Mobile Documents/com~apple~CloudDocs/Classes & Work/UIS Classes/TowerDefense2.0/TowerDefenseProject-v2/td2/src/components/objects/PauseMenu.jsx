@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Button from 'react-bootstrap/Button';
+import { playUiClick } from '../utils/sfx';
 
 // Shown when the player opens the in-game menu. Pauses the game behind it
 // (handled by the caller) and offers a way back into the game or out to
@@ -18,10 +19,10 @@ const PauseMenu = ({ show, onResume }) => {
                     The wave is on hold. Jump back in whenever you&apos;re ready.
                 </main>
                 <footer className="popup-footer pause-menu-footer">
-                    <Button className="popup-button" variant="outline-light" onClick={onResume}>
+                    <Button className="popup-button" variant="outline-light" onClick={() => { playUiClick(); onResume(); }}>
                         Resume
                     </Button>
-                    <Link to="/">
+                    <Link to="/" onClick={playUiClick}>
                         <Button className="popup-button" variant="outline-light">
                             Quit
                         </Button>

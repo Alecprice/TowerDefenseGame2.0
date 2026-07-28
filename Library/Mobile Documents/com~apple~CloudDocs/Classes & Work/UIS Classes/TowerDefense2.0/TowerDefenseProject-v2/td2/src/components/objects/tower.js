@@ -1,4 +1,6 @@
 import { Projectile } from './projectile';
+import { gameSpeed } from '../utils/gameSpeed';
+import { playTowerFire, playUpgradeTower } from '../utils/sfx';
 
 import tower1_lvl1 from '../assets/images/towers/tower1_lvl1.png';
 import tower1_lvl2 from '../assets/images/towers/tower1_lvl2.png';
@@ -71,6 +73,21 @@ export function Tower(x, y, type) {
 
 Tower.prototype = {
     draw: function (ctx) {
+        if (this.upgradeGlowUntil && Date.now() < this.upgradeGlowUntil) {
+            const remaining = this.upgradeGlowUntil - Date.now();
+            const totalDuration = 1200 * this.level;
+            const fade = Math.min(1, remaining / totalDuration);
+            const pulse = 0.75 + 0.25 * Math.sin(Date.now() / 90);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(this.mid.x, this.mid.y, (this.height / 2 + 10) * pulse, 0, Math.PI * 2, true);
+            ctx.fillStyle = `rgba(${this.upgradeGlowColor}, ${0.45 * fade})`;
+            ctx.shadowColor = `rgba(${this.upgradeGlowColor}, ${0.9 * fade})`;
+            ctx.shadowBlur = 18 * fade;
+            ctx.fill();
+            ctx.restore();
+        }
+
         const sprite = towerSprites[this.type] && towerSprites[this.type][this.level];
         if (sprite) {
             ctx.drawImage(sprite, this.x, this.y, this.width, this.height);
@@ -117,9 +134,10 @@ Tower.prototype = {
             if (this.type !== 3) {
                 bullets.push(new Projectile(this.mid.x, this.mid.y, this.projectile, enemy, this.dmgMultiplier));
             }
+            playTowerFire(this.type);
             this.fire = false;
             this.timer = Date.now();
-        } else if ((Date.now() - this.timer) / 1000 >= this.fireRate) {
+        } else if ((Date.now() - this.timer) / 1000 * gameSpeed.value >= this.fireRate) {
             this.fire = true;
         }
     },
@@ -133,6 +151,14 @@ Tower.prototype = {
         this.fireRate = this.baseFireRate * (1 - 0.15 * (this.level - 1));
         this.dmgMultiplier = 1 + 0.5 * (this.level - 1);
         this.upgradeCost = Math.round(this.price * 0.75 * this.level);
+
+        // Temporary glow aura: color changes per level, and duration scales
+        // with level so each successive upgrade's aura lingers longer.
+        const UPGRADE_GLOW_COLORS = { 2: '80, 200, 255', 3: '255, 170, 40' };
+        this.upgradeGlowColor = UPGRADE_GLOW_COLORS[this.level] || '255, 255, 255';
+        this.upgradeGlowUntil = Date.now() + 1200 * this.level;
+
+        playUpgradeTower();
     },
     sell: function () {
         this.sold = true;

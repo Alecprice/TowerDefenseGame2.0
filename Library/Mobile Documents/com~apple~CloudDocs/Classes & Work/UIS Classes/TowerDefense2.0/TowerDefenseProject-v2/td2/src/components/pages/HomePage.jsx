@@ -1,23 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Button from 'react-bootstrap/Button';
-import { maps } from '../data/maps';
+import { playUiClick } from '../utils/sfx';
 
 const HomePage = () => (
     <div>
         <h1>Tower<br/>Defense</h1>
-        <h3>Choose a map</h3>
-        <div className="map-select">
-            {maps.map((map, index) => (
-                <div className="container" key={map.name}>
-                    <Link to={`/login?map=${index}`}>
-                        <Button variant="outline-light">{map.name}</Button>
-                    </Link>
-                </div>
-            ))}
+        <div className="container">
+            <Link to='/play' onClick={playUiClick}>
+                <Button className='sbtn' variant="outline-light">Play</Button>
+            </Link>
         </div>
         <div className="container">
-            <Link to='/scores'>
+            <Link to='/scores' onClick={playUiClick}>
                 <Button variant="outline-light">Highscores</Button>
             </Link>
         </div>

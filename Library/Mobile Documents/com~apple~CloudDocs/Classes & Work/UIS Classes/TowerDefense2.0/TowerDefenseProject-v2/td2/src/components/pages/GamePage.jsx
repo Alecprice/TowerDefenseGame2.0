@@ -22,6 +22,9 @@ import Timer from '../objects/timer';
 import Popup from '../objects/Popup';
 import PauseMenu from '../objects/PauseMenu';
 import Tutorial from '../objects/Tutorial';
+import { gameSpeed } from '../utils/gameSpeed';
+import { mapTheme } from '../utils/mapTheme';
+import { playEnemyDeath, playBuyTower, playUnlockTower, playUiClick } from '../utils/sfx';
 
 
 import circleImg from "../objects/circle.png";
@@ -116,14 +119,25 @@ const GamePage = (props) => {
         enemySpawned: 0,
         lives: 10
     });
+    const [speedLabel, setSpeedLabel] = useState(1);
+    const toggleSpeed = () => {
+        const next = speedLabel >= 3 ? 1 : speedLabel + 1;
+        gameSpeed.value = next;
+        setSpeedLabel(next);
+    }
     const buttonRef = useRef();
     const upgradeButtonRef = useRef();
+    const modalTitleRef = useRef();
+    const modalLevelRef = useRef();
     const scoreSavedRef = useRef(false);
     const sessionIdRef = useRef(null);
     let currentRef = buttonRef.current;
 
+    const TOWER_NAMES = { 1: 'Striker', 2: 'Slower', 3: 'Blaster', 4: 'Burner' };
+
     if (gameState === 'start') {
         init();
+        mapTheme.value = map.theme || 'grass';
         scoreSavedRef.current = false;
         sessionIdRef.current = null;
         // Anchors a server-side clock for this round, used to sanity-check
@@ -161,16 +175,19 @@ const GamePage = (props) => {
                 if (values.wave === 5 && !isTowerUnlocked(2)) {
                     unlockTower(2);
                     setMessage('Tower 2 Unlocked!');
+                    playUnlockTower();
                     rewardsGranted = true;
                 }
                 if (values.wave === 10 && !isTowerUnlocked(3)) {
                     unlockTower(3);
                     setMessage('Tower 3 Unlocked!');
+                    playUnlockTower();
                     rewardsGranted = true;
                 }
                 if (values.wave === 15 && !isTowerUnlocked(4)) {
                     unlockTower(4);
                     setMessage('Tower 4 Unlocked!');
+                    playUnlockTower();
                     rewardsGranted = true;
                 }
 
@@ -204,7 +221,7 @@ const GamePage = (props) => {
                 waveTimer = Date.now();
             } else if (values.enemySpawned < values.wave) {
                 const time = Date.now();
-                const waitTime = values.enemySpawned === 0 ? 2000 : 900;
+                const waitTime = (values.enemySpawned === 0 ? 2000 : 900) / gameSpeed.value;
                 if (time >= waveTimer + waitTime) {
                     let type = 1; // Grunt
                     if (values.wave > 3) {
@@ -221,7 +238,7 @@ const GamePage = (props) => {
             } else if (values.wave % 5 === 0 && !bossSpawnedThisWave) {
                 // Last thing to arrive on a boss wave: one scaled-up boss.
                 const time = Date.now();
-                if (time >= waveTimer + 1500) {
+                if (time >= waveTimer + 1500 / gameSpeed.value) {
                     const boss = new Enemy(map.waypoints[0].x - 60, map.waypoints[0].y, 5);
                     const bossTier = values.wave / 5;
                     boss.maxHealth *= bossTier;
@@ -253,10 +270,18 @@ const GamePage = (props) => {
          if (selected) {
              selected.drawRange(ctx);
              if (currentRef) {
-                 currentRef.style.display = 'Block';
+                 currentRef.style.display = 'flex';
              }
              if (upgradeButtonRef.current) {
                  upgradeButtonRef.current.style.display = selected.canUpgrade() ? 'Block' : 'None';
+             }
+             if (modalTitleRef.current) {
+                 modalTitleRef.current.textContent = TOWER_NAMES[selected.type] || 'Tower';
+             }
+             if (modalLevelRef.current) {
+                 modalLevelRef.current.textContent = selected.canUpgrade()
+                     ? `Level ${selected.level} / ${selected.maxLevel}`
+                     : `Level ${selected.level} / ${selected.maxLevel} (Max)`;
              }
          } else if (!selected) {
              if (currentRef) {
@@ -295,6 +320,7 @@ const GamePage = (props) => {
                         let updatedMoney = values.money + enemies[e].value;
                         let updatedEnemyTotal = values.enemyTotal - 1;
                         setValues(previousState => { return { ...previousState, score: updatedScore, money: updatedMoney, enemyTotal: updatedEnemyTotal } });
+                        playEnemyDeath(enemies[e].type === 5);
                     }
                     //let updatedEnemyTotal = waves.enemyTotal - 1;
                     //setWaves({wave: waves.wave, enemyTotal: updatedEnemyTotal});
@@ -329,6 +355,7 @@ const GamePage = (props) => {
                     towers.push(tower);
                     block.tower = tower;
                     setValues(previousState => { return {...previousState, money: values.money - towers[towers.length - 1].price } });
+                    playBuyTower();
                 }
                 else {
                     setMessage('Not enough money. U R PoOr LoL!');
@@ -338,10 +365,17 @@ const GamePage = (props) => {
     }
     const sellTower = () => {
         if (selected) {
+            playUiClick();
             let refund = selected.sell();
             let updatedMoney = values.money + refund;
             setValues(previousState => { return { ...previousState, money: updatedMoney } });
+            closeTowerModal();
         }
+    }
+    const closeTowerModal = () => {
+        selected = false;
+        if (buttonRef.current) buttonRef.current.style.display = 'None';
+        if (upgradeButtonRef.current) upgradeButtonRef.current.style.display = 'None';
     }
     const upgradeTower = () => {
         if (selected && selected.canUpgrade()) {
@@ -483,33 +517,38 @@ const GamePage = (props) => {
                             />
                         </div>
                     </div>
+                    <div ref={ buttonRef } className='tower-modal-backdrop' onClick={closeTowerModal}>
+                        <div className='tower-modal-card' onClick={e => e.stopPropagation()}>
+                            <button className='tower-modal-close' onClick={() => { playUiClick(); closeTowerModal(); }} aria-label="Close">×</button>
+                            <div className='tower-modal-title' ref={modalTitleRef}>Tower</div>
+                            <div className='tower-modal-level' ref={modalLevelRef}>Level 1</div>
+                            <div className='tower-modal-actions'>
+                                <div ref={ upgradeButtonRef } className='upgradeButton'>
+                                    <button className='upgrade' onClick={ upgradeTower }>
+                                        {selected ? `Upgrade ($${selected.upgradeCost})` : 'Upgrade'}
+                                    </button>
+                                </div>
+                                <button className='sell' onClick={ sellTower }>
+                                    {selected ? `Sell ($${Math.round((selected.price / 2) * (1 + 0.25 * (selected.level - 1)))})` : 'Sell'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <div className='panel-bottom'>
-                        <div ref={ buttonRef } className='sellButton'>
-                            <button className='sell' onClick={ sellTower }>Sell</button>
-                        </div>
-                        <div ref={ upgradeButtonRef } className='upgradeButton'>
-                            <button className='upgrade' onClick={ upgradeTower }>
-                                {selected ? `Upgrade ($${selected.upgradeCost})` : 'Upgrade'}
-                            </button>
-                        </div>
                         <div className='message'>
                             {message}
                         </div>
                         <div className='play-pause'>
                             {show ?
-                                (<button className='play' onClick={function (e) { setGameState('playing'); setShow(!show) }}>Play</button>):
-                                (<button className='pause' onClick={function (e) { setGameState('paused'); setShow(!show) }}>Pause</button>)}
+                                (<button className='play' onClick={function (e) { playUiClick(); setGameState('playing'); setShow(!show) }}>Play</button>):
+                                (<button className='pause' onClick={function (e) { playUiClick(); setGameState('paused'); setShow(!show) }}>Pause</button>)}
+                            <button className='speed' onClick={() => { playUiClick(); toggleSpeed(); }}>{speedLabel}x Speed</button>
                         </div>
                     </div>
                 </div>
             </div>
             <Popup state={gameState} />
             <PauseMenu show={menuOpen} onResume={resumeFromMenu} />
-            <div className="container game-footer">
-                <Link to='/scores' >
-                    <Button variant="outline-light" size="sm">Leaderboard</Button>
-                </Link>
-            </div>
         </div>
     );
 }
