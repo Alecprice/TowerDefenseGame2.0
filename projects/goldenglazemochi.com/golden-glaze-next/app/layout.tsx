@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { siteConfig } from "@/lib/site";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -17,9 +18,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
-  title: "Golden Glaze Mochi Donuts",
-  description: "Fresh handcrafted mochi donuts with rotating weekly flavors.",
+export const metadata: Metadata = {
+  title: siteConfig.name,
+  description: siteConfig.description,
 };
 
 export default function RootLayout({
