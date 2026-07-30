@@ -1,156 +1,119 @@
-# Tower Defense 2.0 - Feature Summary
+# Tower Defense — Feature Summary
 
-## Major Features Added
+## Towers (10 types, 5 levels each: base + 4 upgrades)
 
-### 1. **12 Maps with Progression**
-- Expanded from 2 maps to 12 unique maps with increasing difficulty
-- Maps: Switchback, Serpentine, Spiral, Hourglass, Maze, River, Twister, Checkered, Long Road, Gauntlet, Descent, Fortress
-- Each map must be completed with 5+ waves to unlock the next one
-- Map unlock system stored locally in browser
+Every tower's full stat table lives in `TOWER_DEFS` in
+`src/components/objects/tower.js` — that's the single source of truth for
+price, range, fire rate, damage, and any special fields (poison, slow,
+splash, income, aura). Nothing else in the codebase is allowed to mutate a
+tower's stats independently, which is what previously caused upgrades to
+sometimes make a tower weaker.
 
-### 2. **Tower Unlock System**
-- Start with only Tower 1 (Striker) unlocked
-- Tower 2 (Slower): Unlocked at Wave 5
-- Tower 3 (Blaster): Unlocked at Wave 10
-- Tower 4 (Burner): Unlocked at Wave 15
-- Locked towers show a 🔒 icon in the tower panel
-- Locked towers are grayed out and cannot be placed
+**Attack towers (5):**
+| Tower | Behavior |
+|---|---|
+| Striker | Balanced single-target, targets the enemy furthest along the path |
+| Sniper | Long range, slow fire, high per-hit damage, always targets the highest-HP enemy in range |
+| Blaster | Hits every enemy in range simultaneously each shot (AOE) |
+| Burner | Short range, very fast fire rate, low per-hit damage — targets the fastest enemy in range |
+| Cannon | Splash damage: full damage to its target, reduced-percentage damage to other enemies within a radius of the impact |
 
-### 3. **Permanent Tower Upgrades**
-- Gain upgrade points for towers by completing waves
-- Every 3 waves completed grants an upgrade to a rotating tower (cycles through all 4)
-- Upgrades are permanent and persist across games
-- Upgrade levels shown as "+1", "+2", etc. on tower cards
-- Each upgrade level increases:
-  - Damage multiplier: +50% per level
-  - Range: +15% per level
-  - Fire rate: +15% per level (up to 5 levels max)
+**Special towers (5):**
+| Tower | Behavior |
+|---|---|
+| Toxin Spire | Direct hit + poison DOT. Poison **never stacks** — a second hit refreshes the duration and takes the stronger of the two DPS values, it doesn't add a second independent DOT |
+| Frost Tower | Direct hit + slows the target. The slow is **floored**, not compounding — repeated hits can't grind an enemy toward a standstill |
+| Bank | No attack at all. Passively generates gold every second, scaling with level |
+| Bulwark | Only fires when a boss (wave-5-multiple enemy) is actually in range — dead weight most waves, a serious damage spike on boss waves |
+| Beacon | No attack. Buffs every other (non-Beacon) tower within its aura range: +range, +damage, +fire rate. Multiple Beacons on the same tower stack additively. Recalculated fresh every frame, so selling a Beacon drops its bonus immediately |
 
-### 4. **Tutorial Mode**
-- Interactive tutorial shown on first play
-- 6-page guide covering:
-  - Game overview
-  - How to play (drag & drop towers)
-  - Tower types and abilities
-  - Enemy types
-  - Progression system
-  - Pro tips
-- "Don't show again" checkbox
-- Skip to any page or close at any time
-- Beautiful styled modal that works on mobile and desktop
+### Visible upgrades
+Every tower is drawn procedurally (shape + color fixed per type) rather
+than from PNG sprites. Each upgrade level past the first adds a persistent
+translucent ring around the tower and a small numeric level badge in the
+corner, plus a brief brighter pulse right when the upgrade lands — so a
+levelled-up tower is visually obvious on the board, not just in the popup.
 
-### 5. **Mobile-Friendly Design**
-- Full Pointer Events API support (mouse, touch, pen all work the same)
-- Responsive canvas that scales to screen size (maintains 900x600 internal resolution)
-- Mobile breakpoints:
-  - 900px and below: Panel stacks below canvas horizontally
-  - 480px and below: Smaller fonts, reduced padding
-- Touch-optimized tower placement (no accidental pinch-zoom during play)
-- Minimum 44px touch targets for all buttons
-- Viewport configured to prevent unwanted zooming during gameplay
+### Upgrading (manual only)
+Click a placed tower to open the popup: it shows the tower's name, current
+level, and lets you pay gold to upgrade (persists for that tower for the
+rest of the round) or sell it back (refund = half of everything spent on
+it — base price plus every upgrade paid for). There is no separate
+automatic/free upgrade system anymore — upgrades are entirely
+player-driven.
 
-### 6. **Removed ASP.NET Backend**
-- Completely removed BackendAPI (.NET) project
-- Removed SSL/HTTPS prestart scripts
-- Simplified npm scripts (no more ASP.NET dev cert setup)
-- Cleaner project structure (React-only, Node-based)
+### Unlocking new tower types
+The Striker starts unlocked; the other 9 unlock at wave milestones (see
+`TOWER_UNLOCK_WAVE` in `src/components/utils/progression.js`, waves 3
+through 27), tracked permanently in `localStorage` and shared across every
+map. This is a separate concept from tower *upgrades* — unlocking makes a
+tower type available to place at all; upgrading makes an already-placed
+tower stronger for that round.
 
-### 7. **Local High Score System**
-- Removed dependency on ASP.NET backend
-- Scores stored in browser localStorage (per-device only)
-- Leaderboard displays: Rank, Name, Score, Wave Reached, Map Name
-- Player names persist for convenience
-- Supports up to 10 high scores per device
+## Maps (20 total)
 
-### 8. **Home Page Branding**
-- New map selection screen on home page
-- Shows all 12 maps as clickable buttons
-- Credits footer: "Made by Alec Price" with link to https://www.alecjprice.com
-- Improved visual hierarchy
+12 original maps + 8 new ones (`src/components/data/maps.js`), each with:
+- a unique grid layout and waypoint path
+- one of 4 biome themes (grass / desert / snow / volcanic) reused across
+  maps, cycled for variety
+- a distinct `enemyProfile` — per-map multipliers for enemy speed and
+  health, plus per-map armored/tank spawn chances — so maps feel
+  mechanically different from each other, not just visually different.
+  All 20 maps have one; see `enemyProfile` on each map entry.
+- a deterministic procedural music theme (see Audio below)
 
-## Progression Tracking (localStorage)
+Progressing through a map requires reaching wave 5 to unlock the next one
+(`isMapUnlocked` / `recordMapWaveCompletion` in `progression.js`).
 
-### Saved Data:
-- `td_progression`: Tower unlock states, upgrade levels, map completion waves
-- `td_highscores`: Top 10 local scores with player names
-- `td_playerName`: Player name for convenience
-- `td_tutorial_shown`: Flag to show/hide tutorial on load
+### Map picker with previews
+`/play` (`MapSelectPage.jsx`) now shows all 20 maps as cards, each with a
+small canvas-rendered preview of that map's actual grid + path
+(`MapPreview.jsx` — built from the map's real data, not a static image),
+plus best-wave-reached for unlocked maps and a "reach wave 5 on X" note
+for locked ones. Locked maps are visibly locked and un-clickable, rather
+than silently letting you navigate into a map you haven't unlocked yet.
 
-## Enemy Types (New)
-- **Type 4 - Armored**: Tanky with armor (shrugs off 8 damage per hit), spawns from wave 6+
-- **Type 5 - Boss**: Appears every 5 waves, scaled up 1x, 2x, 3x... by tier
+## Enemies
 
-## How Tower Progression Works
+- Types 1/2/4/5 as before (Grunt, Runner, Armored, Boss).
+- Type 3 ("Tank" — 500 HP) previously existed in code but could never
+  actually spawn; it's now wired into the spawn table (small chance past
+  wave 8) instead of being dead content.
+- HP scales up gradually every wave (independent of tower upgrades), and
+  is further modified per-map by that map's `enemyProfile.healthMult`.
+- Poisoned/slowed enemies now show a visual ring (green pulsing / cyan
+  dashed) so debuffs are visible on the board, not just mechanical.
 
-### Unlocking:
-```
-Wave 5: Unlock Tower 2 → "Tower 2 Unlocked!" message
-Wave 10: Unlock Tower 3 → "Tower 3 Unlocked!" message
-Wave 15: Unlock Tower 4 → "Tower 4 Unlocked!" message
-```
+## Economy scaling
 
-### Upgrading:
-```
-Wave 3 → Tower 1 +1
-Wave 6 → Tower 2 +1
-Wave 9 → Tower 3 +1
-Wave 12 → Tower 4 +1
-(pattern repeats)
-```
+- Enemy kill value/score scale with wave, but at a slower rate than HP, so
+  the economy doesn't spiral alongside rising enemy toughness.
+- Bank towers add a second, passive income stream independent of kills.
+- Tower sell value is always exactly half of total gold spent on that
+  tower (base price + every upgrade), computed from one formula shared
+  between the sell action and the popup's displayed sell price.
 
-## Mobile Optimization Details
+## Audio
 
-### Canvas Scaling:
-- Internal resolution: 900x600 (fixed)
-- Display size: Responsive (max-width: 900px, scales down on mobile)
-- Pointer Events automatically scale click coordinates based on display vs. canvas size
-- Touch drag-and-drop works seamlessly
+- Sound effects: real `.wav` one-shots via Howler, unchanged in mechanism.
+  The 6 new tower types reuse the closest-fitting existing fire sound
+  rather than firing silently.
+- Music: procedurally generated per map (`utils/music.js`) — a tiny seeded
+  chiptune generator using Web Audio oscillators, no audio files. Same map
+  always sounds the same; different maps sound different. Toggle at the
+  top of the game screen.
 
-### Layout Reflow:
-- Desktop: Canvas on left, panel on right (flex row)
-- Tablet/Mobile: Canvas on top, panel below (flex column)
-- All fonts, buttons, and spacing scale with breakpoints
+## Progression data (localStorage)
 
-## Files Modified/Created
+- `td_progression` — tower unlock states (10 entries) and per-map wave
+  progress (20 entries). No longer stores tower *upgrade* levels — those
+  are per-round and live on the in-memory Tower object only.
+- `td_highscores`, `td_playerName`, `td_tutorial_shown` — unchanged.
 
-### New Files:
-- `src/components/utils/progression.js` - Game progression tracking
-- `src/components/objects/Tutorial.js` - Tutorial modal component
+## Automated tests
 
-### Modified Files:
-- `src/components/data/maps.js` - Expanded to 12 maps
-- `src/components/pages/GamePage.js` - Tower unlocks, upgrades, map unlocking, tutorial, progression
-- `src/components/pages/HomePage.js` - Map selection, branding
-- `src/components/pages/LoginPage.js` - Map selection pass-through
-- `src/components/pages/ScoresPage.js` - Local leaderboard display
-- `src/components/objects/Draggable.js` - Pointer Events, lock/upgrade badges
-- `src/components/objects/Panel.js` - Tower unlock state display
-- `src/components/objects/Tower.js` - Upgrade levels and methods
-- `src/components/objects/Enemy.js` - Armored and Boss enemy types
-- `src/components/objects/Projectile.js` - Damage multiplier support
-- `src/styles.css` - Mobile breakpoints, tutorial styling, tower badges
-- `public/index.html` - Mobile viewport tuning, meta tags
-- `package.json` - Removed ASP.NET deps
-- `.esproj`, `.sln` - Removed ASP.NET references
-
-## Next Steps (When You Have Sprites)
-
-To add custom sprites:
-1. Replace `circle.png`, `type1.png`, `type2.png` in `src/components/objects/`
-2. Update enemy draw() methods to use custom sprite images
-3. Tower placement circles can be replaced with tower-specific sprites
-4. Boss sprite suggestions: Larger, distinct colored circle or image
-
-## Scaling Approach
-
-The progression scales reasonably:
-- **Early game** (Waves 1-5): Build with Tower 1, learn mechanics, unlock Tower 2
-- **Mid game** (Waves 6-15): Mix tower types, gain permanent upgrades, handle Armored enemies
-- **Late game** (Waves 15+): Utilize all towers upgraded, manage Boss waves every 5 waves
-- **Map progression**: Success on one map → unlock next with increased enemy density/path complexity
-
-The upgrade multipliers (1.5x damage per level) keep early towers relevant and provide meaningful progression feeling.
-
----
-
-**Status**: Fully playable on desktop and mobile. Ready for sprite/art integration.
+`src/components/objects/tower.test.js` and `enemy.test.js` cover the
+mechanics that are easy to silently break: upgrade stats always coming
+from the catalog (never regressing), sell-value math, Beacon aura math,
+Bank/Bulwark firing conditions, non-stacking poison, and floored slow —
+run with `npm test`.

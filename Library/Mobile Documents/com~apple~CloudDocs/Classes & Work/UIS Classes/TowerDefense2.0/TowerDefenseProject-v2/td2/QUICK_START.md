@@ -1,164 +1,132 @@
-# Tower Defense 2.0 - Quick Start Guide
+# Tower Defense — Quick Start Guide
 
 ## Installation & Running
 
-### First Time Setup:
 ```bash
 cd TowerDefenseProject
 npm install --legacy-peer-deps
-npm start
+npm run dev
 ```
 
-The app will open at `http://localhost:3000`
+The app opens at `http://localhost:3000` (or whatever port Vite reports).
 
-### Production Build:
+### Production Build
 ```bash
 npm run build
 ```
-Output goes to `build/` folder, ready to deploy.
+Output goes to `build/`, ready to deploy.
 
----
-
-## Testing the New Features
-
-### 1. **Tutorial**
-- First time you play, tutorial should appear automatically
-- Click through all 6 pages
-- Check "Don't show again" and close
-- Restart game — tutorial should not appear again
-- Data is stored in browser localStorage
-
-### 2. **Map Selection & Unlocking**
-- Click "Home" from game over screen
-- You'll see 12 map buttons
-- Maps 2-12 should be grayed out or show "Locked" status
-- Complete 5 waves on Map 1 to unlock Map 2
-- Progress through maps to unlock the rest
-
-### 3. **Tower Unlocking**
-- Start game on Map 1
-- Only Tower 1 (Striker, red) should be draggable
-- Towers 2, 3, 4 should show 🔒 lock icon, grayed out
-- Complete Wave 5 → Tower 2 unlocks ("Tower 2 Unlocked!" message)
-- Complete Wave 10 → Tower 3 unlocks
-- Complete Wave 15 → Tower 4 unlocks
-
-### 4. **Tower Upgrades**
-- Look for "+1", "+2", "+3" badges on tower cards after unlocking
-- Every 3 waves you get an upgrade to a tower (rotates through them)
-- Wave 3: Tower 1 +1
-- Wave 6: Tower 2 +1
-- Wave 9: Tower 3 +1
-- Wave 12: Tower 4 +1
-- Upgrades persist across games (reload and start new game — upgrades still there)
-- Upgraded towers deal more damage, have more range, fire faster
-
-### 5. **Mobile Testing**
-- Open on phone/tablet
-- Drag towers by touching and dragging them onto the board
-- Panel should be below canvas (not to the side)
-- Buttons should be large enough to tap easily
-- Pause/Play buttons work on touch
-- Try pinching to zoom — should be blocked during gameplay
-
-### 6. **Affordability Check**
-- Start with $20
-- Try placing a Tower 4 (costs $40) before wave 1 — should fail
-- Grayed out, can't drag
-- After earning money, should become draggable
-
-### 7. **Leaderboard**
-- Complete a wave and lose (or win, but then close game)
-- Name prompt appears after game over popup
-- Enter a name and click continue
-- Go to "Highscores" 
-- Your score should appear in the local leaderboard
-- Refresh page — score still there (stored in localStorage)
-
-### 8. **Enemy Types**
-- **Wave 1-3**: Red Grunts only
-- **Wave 4+**: Mix of Grunts and Yellow Runners
-- **Wave 6+**: Occasionally gray Armored enemies (tanky)
-- **Every 5 waves**: Boss appears (large purple circle) at end of wave
-
----
-
-## Browser Developer Tools
-
-### Check Progression Data:
-```javascript
-// In console:
-JSON.parse(localStorage.getItem('td_progression'))
-JSON.parse(localStorage.getItem('td_highscores'))
+### Tests / Lint
+```bash
+npm test    # vitest — includes tower.test.js and enemy.test.js
+npm run lint
 ```
 
-### Clear All Data:
+---
+
+## Testing the Features
+
+### 1. Map picker
+- From the home screen, click "Play" → you land on `/play` with all 20
+  maps shown as cards, each with a small preview of that map's actual
+  layout.
+- Only the first map is unlocked at the start. The rest show a lock icon
+  and a "reach wave 5 on [previous map]" note, and aren't clickable.
+- Reach wave 5 on a map to unlock the next one.
+
+### 2. Tower tray (10 types)
+- Only the Striker (red circle) is unlocked at the very start. The other
+  9 unlock at wave milestones — waves 3, 6, 9, 12, 15, 18, 21, 24, 27 (see
+  `TOWER_UNLOCK_WAVE` in `progression.js`) — shared globally across every
+  map, not per-map.
+- Locked towers show a 🔒 icon and can't be dragged.
+- Each tray icon shows the tower's actual in-game shape/color and its
+  name (10 towers don't fit on sight alone the way 4 did).
+
+### 3. Placing and upgrading towers
+- Drag a tower from the tray onto a buildable (non-path) tile while the
+  game is playing.
+- Click a placed tower to open its popup: shows name, level (out of 5),
+  and buttons to pay gold to upgrade or sell for a refund.
+- **Upgrades are per-tower and reset each round** — there's no separate
+  free/automatic upgrade system anymore, so what you see in the popup is
+  the whole story.
+- A tower gains a translucent ring per upgrade level and a small level
+  badge once it's above level 1 — you can tell a tower is upgraded just
+  by looking at the board.
+
+### 4. Special tower behaviors worth specifically checking
+- **Bank**: place one, don't build any attack towers near it, and watch
+  your money climb on its own even without kills.
+- **Beacon**: place one next to a Striker, select the Striker, and note
+  its range circle — then sell the Beacon and reselect the Striker; the
+  range should shrink back down immediately.
+- **Bulwark**: on a non-boss wave it should never fire (no projectiles
+  from it at all); on a wave that's a multiple of 5, a boss spawns and it
+  should start firing.
+- **Toxin Spire**: hit an enemy with it twice in a row — health should
+  drain at one consistent rate, not accelerate, and a green ring should
+  show on the enemy while poisoned.
+- **Frost Tower**: hit the same enemy repeatedly — it slows to a floor and
+  stays there, it doesn't keep getting slower forever. A cyan dashed ring
+  shows while slowed.
+
+### 5. Music
+- Checkbox at the top of the game screen. Off by default (browsers require
+  a user gesture before audio can start). Each map has its own small
+  procedurally generated tune — no audio files involved, so it's instant
+  and consistent every time you replay that map.
+
+### 6. Mobile / touch
+- Drag towers by touch same as mouse (Pointer Events).
+- Below 900px width the panel moves below the canvas; the 10-tower tray
+  stays a 5-column grid at every width down to small phones.
+- Map preview cards stack to a single column on narrow screens.
+
+### 7. Leaderboard
+- Same as before: enter a name after game over, check `/scores`.
+
+---
+
+## Developer Notes
+
+### Check progression data
+```javascript
+// Browser console:
+JSON.parse(localStorage.getItem('td_progression'))
+// { towerUnlocks: [10 booleans], mapWavesCompleted: [20 numbers], mapHighestWaves: [20 numbers] }
+```
+
+### Reset everything
 ```javascript
 localStorage.clear()
-// Then reload page
+// then reload
 ```
 
----
+### Adjusting balance
+- Tower stats/prices: edit `TOWER_DEFS` in `src/components/objects/tower.js`
+  — every level for every tower is a plain data table there.
+- Tower unlock waves: `TOWER_UNLOCK_WAVE` in `src/components/utils/progression.js`.
+- Per-map difficulty: `enemyProfile` on each map entry in
+  `src/components/data/maps.js` (`speedMult`, `healthMult`, `armoredChance`,
+  `tankChance`).
+- Wave-over-wave HP scaling: the `waveScale` calculation in `GamePage.jsx`'s
+  spawn logic.
 
-## Common Issues & Solutions
+### Adding a map
+Add an entry to the `maps` array in `src/components/data/maps.js` with
+`name`, `theme`, a 12×18 `grid` (0 = buildable, 1 = path), a `waypoints`
+array, and an `enemyProfile`. The map preview and music are both derived
+automatically from this data — no extra assets to add.
 
-| Issue | Solution |
-|-------|----------|
-| Can't drag towers | Make sure you're dragging from the tower card (right side). Locked towers won't drag. You need enough money ($X for tower type). Game must be in "Playing" state. |
-| Tower unlock not showing | Watch for the popup message "Tower X Unlocked!" at wave 5, 10, 15. If you miss the message, check the tower cards — they should have the lock icon removed. |
-| Upgrades not persisting | Make sure you're not clearing localStorage. Upgrades are stored in `td_progression`. Reload the page — upgrades should still be there. |
-| Touch doesn't work | Make sure you're using a real touch device. Mobile testing in browser DevTools may not perfectly emulate touch events. Test on actual phone/tablet for best results. |
-| Score not saved | After game over, you must enter your name before clicking continue. The name input prompt appears after the "You Died" popup. |
-
----
-
-## Customization Points for Later
-
-### When You Have Sprites:
-1. Replace images in `src/components/objects/`:
-   - `circle.png` → Your tower sprite
-   - `type1.png`, `type2.png` → Enemy sprites
-
-2. Update tower/enemy draw methods in:
-   - `src/components/objects/tower.js` - `.draw()` method
-   - `src/components/objects/enemy.js` - `.draw()` method
-
-### Adjust Wave Unlock Points:
-Edit in `src/components/utils/progression.js`:
-```javascript
-// Default: 5 waves to unlock next map
-return prev >= 5; // Change 5 to your desired number
-```
-
-### Change Tower Costs/Stats:
-Edit `src/components/objects/tower.js` constructor:
-```javascript
-if (this.type === 1) {
-    this.range = 150;     // Change range
-    this.price = 10;      // Change cost
-    // ... etc
-}
-```
-
-### Add More Maps:
-Add to `src/components/data/maps.js` maps array. Follow the pattern:
-```javascript
-{
-    name: 'Your Map Name',
-    grid: [ /* 12x18 array, 0=buildable, 1=path */ ],
-    waypoints: [ /* array of {x, y} coordinates */ ]
-}
-```
-
----
-
-## Files to Share with Your Kids
-
-Print/share the tutorial info so they know:
-- Drag towers onto the dark areas
-- Complete waves to earn upgrades
-- Unlock new towers at wave milestones
-- Don't let enemies reach the end!
+### Adding a tower
+Add an entry to `TOWER_DEFS` in `tower.js` with a `category` (reuse an
+existing one, or add a new branch to `Tower.prototype.shoot()` /
+`Projectile.prototype.impact()` for genuinely new behavior), a `shape`
+(add a new case to `drawShape()` if you want a new silhouette), a `color`,
+and a 5-entry `levels` array. It'll automatically appear in the tray and
+be included in the unlock-wave rotation if you add it to
+`TOWER_UNLOCK_WAVE`.
 
 ---
 

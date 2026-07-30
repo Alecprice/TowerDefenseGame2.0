@@ -42,7 +42,7 @@ const enemySprites = {
 };
 
 
-export function Enemy(x, y, type) {
+export function Enemy(x, y, type, waveScale = 1) {
     this.x = x;
     this.y = y;
     this.width = 50;
@@ -99,6 +99,23 @@ export function Enemy(x, y, type) {
         this.height = 70;
     }
     this.mid = { x: this.x + this.width / 2, y: this.y + this.height / 2 };
+
+    // Wave-based difficulty scaling (skipped for bosses, which already get
+    // their own tier-based scaling from the caller). HP scales at the full
+    // rate so late waves stay a real threat; money/score scale at a slower
+    // rate so the economy doesn't spiral alongside it.
+    if (waveScale !== 1 && this.type !== 5) {
+        this.maxHealth = Math.round(this.maxHealth * waveScale);
+        this.health = this.maxHealth;
+        this.value = Math.round(this.value * (1 + (waveScale - 1) * 0.6));
+        this.score = Math.round(this.score * waveScale);
+    }
+
+    // Slow effects (from the Slower tower) multiply this instead of the
+    // raw speed, and are bounded - see hit() below - so repeated hits
+    // can't compound a target down toward a standstill.
+    this.baseSpeed = this.speed;
+    this.slowMultiplier = 1;
 }
 
 Enemy.prototype = {
@@ -111,7 +128,35 @@ Enemy.prototype = {
         else {
             ctx.drawImage(circle, this.x, this.y);
         }
-       
+        this.drawStatusEffects(ctx);
+    },
+    // Poison and slow are otherwise invisible except through their effects
+    // (health draining, movement lagging) - draw a small ring so the
+    // player can see at a glance which enemies are debuffed.
+    drawStatusEffects: function (ctx) {
+        const now = Date.now();
+        const isPoisoned = this.poison && now < this.poison.expiresAt;
+        const isSlowed = this.slowUntil && now < this.slowUntil;
+        if (!isPoisoned && !isSlowed) return;
+
+        ctx.save();
+        ctx.lineWidth = 2;
+        if (isPoisoned) {
+            const pulse = 0.5 + 0.5 * Math.sin(now / 150);
+            ctx.strokeStyle = `rgba(124, 181, 24, ${0.55 + 0.35 * pulse})`;
+            ctx.beginPath();
+            ctx.arc(this.mid.x, this.mid.y, this.width / 2 + 3, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        if (isSlowed) {
+            ctx.strokeStyle = 'rgba(72, 202, 228, 0.85)';
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.arc(this.mid.x, this.mid.y, this.width / 2 + (isPoisoned ? 8 : 3), 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        ctx.restore();
     },
     drawHealth: function (ctx) {
         /*ctx.fillStyle = 'black';
@@ -158,14 +203,47 @@ Enemy.prototype = {
         }
        
     }*/
-    hit: function (bullet) {
-        const damage = this.armor ? Math.max(1, bullet.pwr - this.armor) : bullet.pwr;
-        this.health -= damage;
-        if (bullet.slow) {
-            this.speed *= 0.75;
-        }
+    hit: function (damage) {
+        const dealt = this.armor ? Math.max(1, damage - this.armor) : damage;
+        this.health -= dealt;
         if (this.health <= 0) {
             this.dead = true;
+        }
+    },
+    // Poison never stacks: a fresh hit just refreshes the timer and takes
+    // the stronger of the current/incoming DPS, rather than adding a
+    // second independent DOT on top.
+    applyPoison: function (dps, durationMs) {
+        if (!dps) return;
+        const now = Date.now();
+        const currentDps = (this.poison && now < this.poison.expiresAt) ? this.poison.dps : 0;
+        this.poison = {
+            dps: Math.max(currentDps, dps),
+            expiresAt: now + durationMs,
+        };
+    },
+    // Bounded slow: floors at `floor` (a fraction of base speed) instead of
+    // compounding toward zero the more times it's hit.
+    applySlow: function (floor) {
+        if (!floor) return;
+        this.slowMultiplier = Math.min(this.slowMultiplier, floor);
+        this.speed = this.baseSpeed * this.slowMultiplier;
+        this.slowUntil = Date.now() + 1500;
+    },
+    // Called once per frame from the game loop (independent of being hit
+    // this frame) to apply poison ticks and let an expired slow wear off.
+    tick: function (dtSeconds) {
+        const now = Date.now();
+        if (this.poison && now < this.poison.expiresAt) {
+            this.health -= this.poison.dps * dtSeconds;
+            if (this.health <= 0) this.dead = true;
+        } else if (this.poison) {
+            this.poison = null;
+        }
+        if (this.slowUntil && now > this.slowUntil) {
+            this.slowMultiplier = 1;
+            this.speed = this.baseSpeed;
+            this.slowUntil = null;
         }
     }
 }
