@@ -1,21 +1,31 @@
 
 @font-face {
     font-family: arcade;
-    src: url('./components//assets/fonts/arcade.ttf') format('truetype');
+    src: url('./components/assets/fonts/Bungee-Regular.ttf') format('truetype');
+    font-display: swap;
 }
 
 @font-face {
     font-family: title;
-    src: url('./components/assets/fonts/space.otf') format('opentype');
+    src: url('./components/assets/fonts/Bungee-Regular.ttf') format('truetype');
+    font-display: swap;
 }
 
 @font-face{
     font-family: pixel;
-    src: url('./components/assets/fonts/pixel.ttf') format('truetype');
+    src: url('./components/assets/fonts/VT323-Regular.ttf') format('truetype');
+    font-display: swap;
 }
 
 *, *::before, *::after {
     box-sizing: border-box;
+}
+
+.route-loading {
+    text-align: center;
+    color: #cfcfcf;
+    font-family: pixel;
+    padding: 4em 1em;
 }
 
 body {
@@ -102,6 +112,63 @@ h3, h4 {
     color: #f0f0f0f0 !important;
 }
 
+.difficulty-picker {
+    margin: 24px auto 8px;
+    max-width: 640px;
+}
+
+.difficulty-picker-label {
+    font-family: pixel;
+    font-size: 18px;
+    color: #cfcfcf;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.difficulty-picker-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.difficulty-option {
+    font-family: pixel;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 10px 8px;
+    color: #f0f0f0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+}
+
+.difficulty-option:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.difficulty-option.selected {
+    border-color: currentColor;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.difficulty-option-name {
+    font-size: 16px;
+}
+
+.difficulty-option-desc {
+    font-size: 11px;
+    color: #b9b9b9;
+}
+
+.difficulty-option-easy { color: #4cc9f0; }
+.difficulty-option-basic { color: #a3e635; }
+.difficulty-option-normal { color: #ffd60a; }
+.difficulty-option-hard { color: #f4a300; }
+.difficulty-option-challenge { color: #e63946; }
+
 .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
     border-width: 2px !important;
 }
@@ -174,23 +241,6 @@ img:hover {
     font-size: 14px;
 }
 
-.tower-upgrade-badge {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background-color: #2e7d32;
-    color: white;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: pixel;
-    font-size: 10px;
-    font-weight: bold;
-}
-
 .tower-cost {
     position: absolute;
     bottom: 0;
@@ -216,11 +266,76 @@ img:hover {
     margin: auto;
     align-items: flex-start;
     gap: 0.75em;
+    position: relative;
+}
+
+.next-wave-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 0 auto 4px;
+    max-width: 900px;
+    padding: 0 12px;
+}
+
+.next-wave-label {
+    font-family: pixel;
+    font-size: 11px;
+    color: #9a9a9a;
+    margin-right: 2px;
+}
+
+.next-wave-badge {
+    font-family: pixel;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    color: white;
+    background-color: #37474f;
+    white-space: nowrap;
+}
+
+.badge-grunt { background-color: #52796f; }
+.badge-runner { background-color: #d4a017; }
+.badge-armored { background-color: #bc6c25; }
+.badge-tank { background-color: #6a4c93; }
+.badge-flyer { background-color: #0077b6; }
+.badge-teleporter { background-color: #7b2cbf; }
+.badge-boss { background-color: #ff595e; }
+
+.wave-banner {
+    position: absolute;
+    top: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: title;
+    font-size: 28px;
+    color: #ffd60a;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 16px rgba(255, 214, 10, 0.5);
+    pointer-events: none;
+    opacity: 0;
+    white-space: nowrap;
+    z-index: 15;
+}
+
+.wave-banner-show {
+    animation: wave-banner-fade 1.6s ease-out forwards;
+}
+
+@keyframes wave-banner-fade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.9); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.05); }
+    30% { transform: translateX(-50%) translateY(0) scale(1); }
+    75% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(1); }
 }
 
 .game canvas {
     width: 100%;
     max-width: 1040px;
+    min-width: 0;
     height: auto;
     display: block;
     margin: 0 auto;
@@ -229,19 +344,70 @@ img:hover {
     flex: 1 1 auto;
 }
 
-.sellButton {
-    display: none;
+.tower-modal-backdrop {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+}
+
+.tower-modal-card {
+    background-color: #23252b;
+    border: 2px solid #444;
+    border-radius: 10px;
+    padding: 20px 24px;
+    min-width: 220px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.tower-modal-close {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #ccc;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    min-height: 32px;
+    min-width: 32px;
+}
+
+.tower-modal-title {
+    font-family: title;
+    font-size: 20px;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.tower-modal-level {
+    font-family: pixel;
+    font-size: 18px;
+    color: #9fd3ff;
+    margin-bottom: 16px;
+}
+
+.tower-modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .upgradeButton {
-    display: none;
-    margin-top: 4px;
+    width: 100%;
 }
 
 .sell,
 .upgrade,
 .play,
 .pause,
+.speed,
 .menu {
     min-height: 44px;
     min-width: 44px;
@@ -250,11 +416,42 @@ img:hover {
     touch-action: manipulation;
 }
 
+.sound-toggle {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 18px;
+    padding: 8px 14px;
+    touch-action: manipulation;
+    margin-left: 8px;
+    background-color: #37474f;
+    color: white;
+    border: 1px solid #5a6b73;
+    border-radius: 4px;
+}
+
+.speed {
+    background-color: #1565c0;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    margin-left: 8px;
+}
+
+.sell {
+    width: 100%;
+}
+
 .upgrade {
     background-color: #2e7d32;
     color: white;
     border: none;
     border-radius: 4px;
+    width: 100%;
+}
+
+.upgrade:disabled {
+    background-color: #555;
+    cursor: not-allowed;
 }
 
 .map-select {
@@ -295,6 +492,20 @@ img:hover {
     font-family: pixel;
 }
 
+.difficulty-label {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-family: pixel;
+    font-size: 16px;
+    border: 1px solid currentColor;
+}
+
+.difficulty-basic { color: #a3e635; }
+.difficulty-normal { color: #ffd60a; }
+.difficulty-hard { color: #f4a300; }
+.difficulty-challenge { color: #e63946; }
+
 .panel-right {
     float: right;
 }
@@ -311,6 +522,10 @@ img:hover {
     width: 100%;
     font-family: pixel;
     font-size: 26px;
+}
+
+.crystals-display {
+    color: #00b4d8;
 }
 
 .panel-bottom {
@@ -375,6 +590,126 @@ img:hover {
 .popup-footer {
     text-align: center;
     padding: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.popup-cores {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: #ffd60a;
+    font-size: 16px;
+}
+
+.run-summary {
+    margin-top: 0.75rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    text-align: left;
+    font-size: 13px;
+}
+
+.run-summary-line {
+    color: #cfcfcf;
+    margin-bottom: 4px;
+}
+
+.run-summary-heading {
+    color: #f0f0f0;
+    font-family: pixel;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.run-summary-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.run-summary-list li {
+    color: #cfcfcf;
+    padding: 2px 0;
+}
+
+.cores-balance {
+    font-family: pixel;
+    font-size: 26px;
+    color: #ffd60a;
+    text-align: center;
+}
+
+.cores-best-wave {
+    font-family: pixel;
+    font-size: 16px;
+    color: #cfcfcf;
+    text-align: center;
+}
+
+.upgrades-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    max-width: 1000px;
+    margin: 0 auto 24px;
+    padding: 0 12px;
+}
+
+.upgrade-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.upgrade-card.maxed {
+    border-color: #ffd60a;
+    background-color: rgba(255, 214, 10, 0.08);
+}
+
+.upgrade-name {
+    font-family: title;
+    font-size: 16pt;
+    color: #f0f0f0;
+}
+
+.upgrade-desc {
+    font-family: pixel;
+    font-size: 14px;
+    color: #cfcfcf;
+    min-height: 2.4em;
+}
+
+.upgrade-level {
+    font-family: pixel;
+    font-size: 13px;
+    color: #7cb518;
+}
+
+.upgrade-buy {
+    font-family: pixel;
+    font-size: 14px;
+    padding: 8px;
+    border-radius: 6px;
+    border: none;
+    background-color: #37474f;
+    color: white;
+    cursor: pointer;
+}
+
+.upgrade-buy:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.upgrade-buy:not(:disabled):hover {
+    background-color: #455a64;
 }
 
 .pause-menu-footer {
@@ -494,6 +829,319 @@ img:hover {
     .towers {
         grid: 60px / repeat(4, 1fr);
     }
+
+    .sbtn {
+        font-size: 20px;
+    }
+
+    .credits {
+        font-size: 16px;
+    }
+}
+
+/* ---------------------------------------------------------------------
+ * Landscape mode for phones & tablets.
+ *
+ * This isn't just a narrower version of the desktop layout - it's a
+ * different view of the same game, built for the moment someone turns
+ * their phone sideways. The title and score bar collapse into a thin
+ * sticky strip, the canvas grows to fill essentially the whole screen
+ * height, and the shop becomes a slim scrollable dock along the right
+ * edge instead of a grid sitting underneath the board.
+ *
+ * `pointer: coarse` + a height cap is what distinguishes an actually-
+ * rotated phone/tablet from someone just resizing a desktop browser
+ * window sideways, so mouse-and-keyboard users keep the normal layout.
+ * ------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 560px) and (pointer: coarse) {
+    .rotate-hint {
+        display: none;
+    }
+
+    .game-screen {
+        min-height: 100dvh;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    .game-title {
+        display: none;
+    }
+
+    .waves-scores-wrapper {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: rgba(12, 12, 12, 0.78);
+        backdrop-filter: blur(4px);
+        gap: 1em;
+        padding: 3px 0;
+        margin-bottom: 2px;
+        width: 100%;
+    }
+
+    .wave-label,
+    .score-label,
+    .difficulty-label,
+    .timer {
+        font-size: 12px;
+    }
+
+    .game {
+        flex-direction: row;
+        align-items: stretch;
+        justify-content: flex-start;
+        height: calc(100dvh - 26px - env(safe-area-inset-top, 0px));
+        max-width: 100%;
+        max-height: none;
+        padding-bottom: 0;
+        gap: 0.4em;
+        margin: 0;
+    }
+
+    .game canvas {
+        width: auto;
+        height: 100%;
+        max-width: none;
+        max-height: 100%;
+        flex: 1 1 auto;
+        object-fit: contain;
+        margin: 0;
+    }
+
+    .panel {
+        width: 108px;
+        min-width: 108px;
+        max-width: 108px;
+        flex: 0 0 108px;
+        height: 100%;
+        overflow-y: auto;
+        padding: 4px;
+        border-radius: 8px 0 0 8px;
+    }
+
+    .panel-top {
+        padding-top: 2px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .money,
+    .lives {
+        font-size: 14px;
+        width: 100%;
+        float: none;
+    }
+
+    .menu,
+    .sound-toggle {
+        font-size: 10px;
+        padding: 3px 2px;
+    }
+
+    .panel-mid .towers {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 5px !important;
+        padding-top: 4px !important;
+    }
+
+    .panel-mid .draggable-tower {
+        min-height: 52px;
+        padding: 3px 2px 12px;
+    }
+
+    .tower-name {
+        font-size: 6.5px;
+    }
+
+    .panel-bottom {
+        grid: none;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .play-pause {
+        margin-top: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .message {
+        font-size: 10px;
+        min-height: 0;
+    }
+
+    .tower-modal-card {
+        max-width: 80vw;
+        padding: 14px;
+    }
+}
+
+/* Nudge portrait-phone players toward the richer landscape view above.
+   Hidden everywhere else (desktop, tablets already in landscape, etc). */
+.rotate-hint {
+    display: none;
+}
+
+@media (orientation: portrait) and (pointer: coarse) and (max-width: 640px) {
+    .rotate-hint {
+        display: block;
+        text-align: center;
+        color: #b9b9b9;
+        font-size: 13px;
+        padding: 0 16px 8px;
+    }
+
+    .rotate-hint__icon {
+        display: inline-block;
+        margin-right: 6px;
+        animation: rotate-hint-tilt 2.4s ease-in-out infinite;
+    }
+}
+
+@keyframes rotate-hint-tilt {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-90deg); }
+}
+
+.upgrades-subheading {
+    text-align: center;
+    font-family: title;
+    margin-top: 1.5rem;
+}
+
+.palette-card {
+    align-items: center;
+}
+
+.palette-card.active {
+    border-color: #4cc9f0;
+    background-color: rgba(76, 201, 240, 0.1);
+}
+
+.palette-swatch {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #e63946;
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Boss HP bar (HUD) ---- */
+.boss-bar-wrap {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    max-width: 500px;
+    margin: 0 auto 6px;
+    padding: 0 12px;
+}
+
+.boss-bar-label {
+    font-family: pixel;
+    color: #ff595e;
+    font-size: 13px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.boss-bar-track {
+    flex: 1;
+    height: 12px;
+    background-color: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 89, 94, 0.6);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.boss-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #ff595e, #ffca3a);
+    transition: width 0.15s linear;
+}
+
+/* ---- Achievements page ---- */
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+    max-width: 1000px;
+    margin: 0 auto 24px;
+    padding: 0 12px;
+}
+
+.achievement-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.achievement-card.unlocked {
+    border-color: #ffd60a;
+    background-color: rgba(255, 214, 10, 0.08);
+}
+
+.achievement-icon {
+    font-size: 26px;
+    flex-shrink: 0;
+    filter: grayscale(1) opacity(0.5);
+}
+
+.achievement-card.unlocked .achievement-icon {
+    filter: none;
+}
+
+.achievement-name {
+    font-family: title;
+    font-size: 15pt;
+    color: #f0f0f0;
+}
+
+.achievement-desc {
+    font-family: pixel;
+    font-size: 13px;
+    color: #cfcfcf;
+}
+
+.backup-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.season-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.season-toggle button {
+    font-family: pixel;
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background-color: transparent;
+    color: #cfcfcf;
+    cursor: pointer;
+}
+
+.season-toggle button.active {
+    background-color: #37474f;
+    color: white;
+    border-color: #37474f;
 }
 
 .tutorial-overlay {
@@ -512,16 +1160,19 @@ img:hover {
 .tutorial-modal {
     background-color: #2c2c2c;
     border-radius: 12px;
-    padding: 30px;
-    max-width: 500px;
-    width: 90%;
+    padding: 24px;
+    max-width: 560px;
+    width: 92%;
+    max-height: 85vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     border: 2px solid #4a4a4a;
 }
 
 .tutorial-title {
     font-family: title;
-    font-size: 24pt;
+    font-size: 26pt;
     color: #f0f0f0;
     margin: 0 0 15px 0;
     text-align: center;
@@ -529,11 +1180,29 @@ img:hover {
 
 .tutorial-content {
     font-family: pixel;
-    font-size: 14px;
-    color: #cfcfcf;
+    font-size: 19px;
+    color: #e6e6e6;
     line-height: 1.6;
     margin: 0 0 20px 0;
     text-align: center;
+}
+
+.tutorial-list {
+    font-family: pixel;
+    font-size: 17px;
+    color: #e6e6e6;
+    line-height: 1.6;
+    text-align: left;
+    margin: 0 0 20px 0;
+    padding-left: 22px;
+}
+
+.tutorial-list li {
+    margin-bottom: 10px;
+}
+
+.tutorial-list .tower-icon-label {
+    font-weight: bold;
 }
 
 .tutorial-controls {
@@ -548,12 +1217,14 @@ img:hover {
     background-color: #4a90e2;
     color: white;
     border: none;
-    padding: 8px 16px;
+    padding: 10px 18px;
     border-radius: 4px;
     cursor: pointer;
     font-family: pixel;
-    font-size: 12px;
-    min-width: 80px;
+    font-size: 16px;
+    min-width: 90px;
+    min-height: 44px;
+    touch-action: manipulation;
 }
 
 .tutorial-btn:hover:not(:disabled) {
@@ -568,14 +1239,16 @@ img:hover {
 
 .tutorial-page-counter {
     font-family: pixel;
-    color: #cfcfcf;
-    font-size: 12px;
+    color: #e6e6e6;
+    font-size: 15px;
 }
 
 .tutorial-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-top: 20px;
     padding-top: 15px;
     border-top: 1px solid #4a4a4a;
@@ -584,21 +1257,25 @@ img:hover {
 .tutorial-checkbox {
     display: flex;
     align-items: center;
-    color: #cfcfcf;
+    color: #e6e6e6;
     font-family: pixel;
-    font-size: 12px;
+    font-size: 15px;
     cursor: pointer;
+    min-height: 44px;
 }
 
 .tutorial-close-btn {
     background-color: #2e7d32;
     color: white;
     border: none;
-    padding: 8px 20px;
+    padding: 10px 22px;
     border-radius: 4px;
     cursor: pointer;
     font-family: pixel;
-    font-size: 12px;
+    font-size: 16px;
+    min-height: 44px;
+    min-width: 90px;
+    touch-action: manipulation;
 }
 
 .tutorial-close-btn:hover {
@@ -609,9 +1286,18 @@ img:hover {
     text-align: center;
     margin-top: 40px;
     padding: 20px;
-    color: #8a8a8a;
+    color: #cfcfcf;
+    font-family: arcade;
+    font-size: 20px;
+}
+
+.legacy-note {
+    max-width: 420px;
+    margin: 6px auto 0;
+    color: #9a9a9a;
     font-family: pixel;
     font-size: 12px;
+    line-height: 1.5;
 }
 
 .credits a {
@@ -621,4 +1307,125 @@ img:hover {
 
 .credits a:hover {
     text-decoration: underline;
+}
+/* ---------------------------------------------------------------------
+ * 15-tower tray (overrides the older, now-superseded .towers rules above
+ * with a dedicated grid sized for the full roster).
+ * ------------------------------------------------------------------- */
+.panel-mid .towers {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    width: 100%;
+    float: none;
+    padding-top: 8px;
+}
+
+.panel-mid .draggable-tower {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 4px 2px 14px;
+    min-height: 68px;
+}
+
+.tower-name {
+    font-family: pixel;
+    font-size: 8px;
+    color: #ddd;
+    text-align: center;
+    margin-top: 2px;
+    line-height: 1.1;
+}
+
+@media (max-width: 900px) {
+    .panel-mid .towers {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .panel-mid .towers {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 4px;
+    }
+    .panel-mid .draggable-tower {
+        min-height: 56px;
+    }
+    .tower-name {
+        font-size: 7px;
+    }
+}
+
+/* ---------------------------------------------------------------------
+ * Map picker previews (see MapSelectPage.jsx)
+ * ------------------------------------------------------------------- */
+.map-select-subtitle {
+    text-align: center;
+    color: #9a9a9a;
+    font-family: pixel;
+    font-size: 13px;
+    margin-top: -6px;
+    margin-bottom: 14px;
+}
+
+.map-select-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 12px 0 24px;
+}
+
+.map-select-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 10px;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+    text-align: center;
+}
+
+.map-select-card:hover:not(.locked) {
+    transform: translateY(-3px);
+    border-color: #4a90e2;
+}
+
+.map-select-card.locked {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.map-select-card canvas {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+    background-color: #111;
+}
+
+.map-select-name {
+    font-family: pixel;
+    font-size: 13px;
+    color: #fff;
+    margin-top: 8px;
+}
+
+.map-select-progress {
+    font-family: pixel;
+    font-size: 10px;
+    color: #9a9a9a;
+    margin-top: 2px;
+}
+
+.map-select-lock {
+    font-family: pixel;
+    font-size: 10px;
+    color: #e63946;
+    margin-top: 2px;
 }

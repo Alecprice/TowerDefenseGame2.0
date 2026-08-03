@@ -1,117 +1,104 @@
 # Tower Defense — Asset Specification
 
-This is a working list of every visual/audio asset the game engine expects,
-pulled directly from the code (grid size, `drawImage` calls, hitbox
-dimensions) rather than guessed. Anything marked **MISSING** currently
-renders as a plain vector shape (a solid-color circle) as a placeholder —
-dropping in real art for those won't require any code changes, since the
-draw functions already have a branch reserved for them.
+This tracks every visual/audio asset the game engine actually uses, pulled
+from the code rather than guessed. As of the 10-tower / 20-map rewrite,
+**towers, projectiles, and music are all procedurally generated in code —
+they no longer need image or audio files at all.**
 
-All game-board art uses transparent PNG on a 50×50 px grid (the canvas is
-900×600, i.e. 18×12 tiles of 50px). Keep sprites centered in their canvas
-with a little breathing room at the edges — collision boxes are exactly
-50×50 (70×70 for the boss), so oversized art will visually overlap
-neighboring tiles.
+## Towers — procedural, no art files
 
-## Towers
+Every tower (all 10 types, all 5 levels) is drawn on the canvas at runtime
+by `drawShape()` in `src/components/objects/tower.js`: a fixed silhouette
+per type (circle, triangle, diamond, square, hexagon, star, cross/plus,
+pentagon, octagon) in a fixed color, scaled slightly and ringed once per
+upgrade level past the first, plus a small numeric level badge once
+upgraded. See `TOWER_DEFS` in that file for the type → shape/color table.
 
-The panel shows a drag icon per tower; the canvas shows a separate in-play
-sprite. Both are currently the same reused circle placeholder — each tower
-type needs its own art for both.
+There is **no PNG art for towers anymore** — the old
+`src/components/assets/images/towers/` directory (4 towers × 3 levels +
+4 panel icons) has been deleted since nothing referenced it. If you want
+hand-drawn tower art later, the integration point is `Tower.prototype.draw`
+in `tower.js`: swap the `drawShape(...)` call for `ctx.drawImage(...)`
+keyed by `[type][level]`, same pattern the old code used.
 
-| Type | Name (from code) | Cost | Placeholder color | Panel icon | Canvas sprite |
-|---|---|---|---|---|---|
-| 1 | Striker | $10 | red | 50×50 PNG | 50×50 PNG |
-| 2 | Slower | $20 | blue | 50×50 PNG | 50×50 PNG |
-| 3 | Blaster | $30 | yellow | 50×50 PNG | 50×50 PNG |
-| 4 | Burner | $40 | green | 50×50 PNG | 50×50 PNG |
+The tray icon (`TowerIcon.jsx`) reuses the exact same `drawShape()`
+function so the tray and the board always match.
 
-- **Panel icon**: drawn at a fixed 50×50 in the tower tray (`Draggable.jsx`).
-- **Canvas sprite**: drawn at the tower's `(x, y)` on a 50×50 grid tile.
-- **Upgrades**: each tower has 3 levels, but upgrades currently only change
-  stats (range/fire rate/damage) — there's no visual change on upgrade.
-  If you want a tier look (e.g. a glowing ring or bigger silhouette at
-  level 2/3), that's 3 extra sprite variants per tower (12 total) *and*
-  a small code change to swap the image based on `tower.level`.
+## Projectiles — procedural, no art files
 
-## Enemies
+Projectiles are small filled circles colored by the firing tower's
+category (`CATEGORY_COLOR` in `src/components/objects/projectile.js`):
+white for plain attack towers, green for poison, cyan for slow, red for
+the boss-hunter tower. The old `projectiles/` PNG directory (bolt/ice/
+spark) has been deleted — nothing imports it anymore.
 
-All enemy art is drawn unscaled at native image size via `ctx.drawImage`,
-so the PNG's actual pixel dimensions must exactly match the hitbox below —
-otherwise the visible sprite and the collision box will mismatch.
+## Enemies — still real PNG art
 
-| Type | Name | Size | Status | Notes |
-|---|---|---|---|---|
-| 1 | Grunt | 50×50 | ✅ exists (`Type1.png`) | |
-| 2 | Runner | 50×50 | ✅ exists (`Type2.png`) | faster, less HP |
-| 3 | *(unnamed)* | 50×50 | ⚠️ uses generic circle placeholder | deserves its own sprite |
-| 4 | Armored | 50×50 | **MISSING** | currently a grey circle with dark outline |
-| 5 | Boss | 70×70 | **MISSING** | currently a purple circle, gold outline — every 5th wave |
+Enemy art is the one place hand-drawn sprites are still used and still
+matter. All enemy art is drawn unscaled at native image size via
+`ctx.drawImage`, so the PNG's actual pixel dimensions must exactly match
+the hitbox below — otherwise the visible sprite and the collision box will
+mismatch.
 
-## Projectiles
-
-Drawn scaled down to 5×5 px on the canvas regardless of source size, so
-supply higher-resolution source art (e.g. 32×32 or 64×64) for a crisp
-downscale rather than authoring at 5×5 directly.
-
-| Type | Fired by | Suggested look |
-|---|---|---|
-| 1 | Striker | plain bolt/orb (currently generic white circle) |
-| 2 | Slower | something visually "cold" — it slows enemies on hit |
-| 3 | Blaster | energy/spark look — it hits every enemy in range at once |
-
-## Map tiles (optional polish)
-
-Currently pure vector: path tiles are a white-outlined rect, buildable
-ground is a solid black fill. Both are 50×50. Real textures here are
-optional but would be the single biggest visual upgrade for the board:
-
-- **Path tile**: 50×50 PNG (road/dirt texture)
-- **Buildable tile**: 50×50 PNG (grass/ground texture)
-
-Tileable/seamless art is strongly preferred since the same tile repeats
-across the whole 18×12 board.
-
-## Map thumbnails (optional)
-
-The 12 maps are currently plain text buttons on the home screen. If you
-want a visual preview per map, a 4:3 thumbnail works well with the game's
-existing layout:
-
-- Suggested size: 300×225 px (or 400×300 for retina), PNG or JPG
-
-## UI icons (optional — currently emoji/text, both work fine as-is)
-
-| Icon | Where | Current | Suggested size |
+| Type | Name | Size | Notes |
 |---|---|---|---|
-| Lock | tower panel, locked towers | 🔒 emoji | 24×24 (export at 48×48 for retina) |
-| Menu/pause | new in-game menu button | plain text "Menu" | 24×24 (export at 48×48 for retina) |
+| 1 | Grunt | 50×50 | |
+| 2 | Runner | 50×50 | faster, less HP |
+| 3 | Tank | 50×50 | high HP, high value/score — now actually spawns (small chance past wave 8, was previously dead/unused code) |
+| 4 | Armored | 50×50 | flat damage-reduction armor stat |
+| 5 | Boss | 70×70 | every 5th wave, scales up per boss tier |
 
-## Fonts (already in the project — no action needed)
+Each type has 4 sprite variants — one per map biome/theme (`grass`,
+`desert`, `snow`, `volcanic`) — under
+`src/components/assets/images/enemies/`. `mapTheme.js` picks the active
+set per map; `block.js` reads the same theme for tile art.
 
-Located in `src/components/assets/fonts/`, all already wired up in
-`styles.css` and used consistently across the app:
+Enemy debuffs (poison, slow) don't have their own sprites either — they're
+drawn as a pulsing green ring / dashed cyan ring around the existing enemy
+sprite (`Enemy.prototype.drawStatusEffects` in `enemy.js`), stacking to two
+concentric rings if both are active at once.
 
-- `arcade.ttf` — buttons (`.btn`, `.sbtn`)
-- `space.otf` (font-family `title`) — all headings (h1–h4)
-- `pixel.ttf` — body text, HUD, popups, tutorial, scores
+## Map tiles
+
+Unchanged from before: 50×50 PNGs, path and buildable variants per theme,
+under `src/components/assets/images/tiles/`.
+
+## Map preview thumbnails — procedural, no art files
+
+The map picker (`MapSelectPage.jsx`) shows a small canvas-rendered preview
+per map (`MapPreview.jsx`) built directly from that map's `grid` and
+`waypoints` data — colored per theme, with the enemy path traced as a
+line. No thumbnail images to generate or keep in sync as maps change.
+
+## UI icons
+
+Unchanged: lock (🔒) and menu are emoji/text, no image assets.
+
+## Fonts
+
+Unchanged, already wired up in `styles.css`:
+- `arcade.ttf` / `Bungee-Regular.ttf` / `VT323-Regular.ttf` — see
+  `styles.css` for which font-family maps to which class.
 
 ## Audio
 
-One track currently exists: `songformydeath.mp3` (background music,
-~6.8 MB — on the large side for a web asset; consider re-encoding future
-tracks at a lower bitrate, e.g. 128kbps mp3 or an .ogg alternative).
+### Sound effects — real audio files, unchanged
+Short one-shot `.wav` clips under `src/components/assets/audioClips/`,
+played through Howler (`utils/sfx.js`): tower fire (mapped per tower —
+the 6 new tower types reuse the closest-fitting existing clip rather than
+firing silently, see the `fireSounds` table), enemy death, boss death, buy,
+unlock, upgrade, UI click.
 
-Not implemented yet, but worth having if you want fuller game-feel:
+### Background music — procedural, no audio files
+There is no `songformydeath.mp3` background track anymore, and no
+per-map audio files. `src/components/utils/music.js` generates a short
+looping chiptune with plain Web Audio oscillators, seeded deterministically
+by map index — same map always sounds the same, different maps sound
+different, and there's nothing to ship, license, or keep in sync as maps
+are added or reordered. The in-game toggle (top of `GamePage.jsx`) starts/
+stops it; browsers require the user gesture on that checkbox before audio
+can play, same constraint as before.
 
-| Sound | Trigger | Suggested length |
-|---|---|---|
-| Tower fire | each shot | <0.3s one-shot |
-| Enemy hit | projectile impact | <0.3s one-shot |
-| Enemy death | enemy killed | <0.5s one-shot |
-| Wave start | new wave begins | 1–2s stinger |
-| Victory / Game over | win/lose | 2–4s stinger |
-| UI click | button press | <0.2s one-shot |
-
-Keep one-shot SFX small (well under 200KB each) — they're loaded/played
-far more frequently than the background track.
+If you want real composed music instead, the integration point is
+`startMapMusic(mapIndex)` in `music.js` — replace its internals with an
+`Audio`/Howl element keyed by map index.

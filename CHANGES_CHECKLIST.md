@@ -1,147 +1,71 @@
-# Complete Checklist of Changes Made
+# Changes Checklist
 
-## ✅ Backend Removal
-- [x] Deleted `BackendAPI/` folder entirely
-- [x] Removed BackendAPI project from `.sln`
-- [x] Removed `aspnetcore-https.js` and `aspnetcore-react.js`
-- [x] Removed `nuget.config`
-- [x] Updated `package.json` scripts (no HTTPS/prestart)
-- [x] Removed `http-proxy-middleware` dependency
-- [x] Cleaned up `.esproj` MSBuild targets
+This file tracks what's actually been done to the project, most recent
+first. (The version of this file describing the original ASP.NET removal
+and the first 4-tower progression system is superseded by everything
+below — that system was replaced, not extended.)
 
-## ✅ Progression System (New)
-- [x] Created `src/components/utils/progression.js`
-  - Tower unlock tracking
-  - Tower upgrade level tracking
-  - Map completion waves
-  - Map unlock logic (5 waves per map)
-  - Tutorial shown flag
+## ✅ Round 2: 10-tower rewrite, 20 maps, procedural art/music, polish pass
 
-## ✅ Map Expansion
-- [x] Expanded `src/components/data/maps.js` from 2 to 12 maps
-- [x] Map names: Switchback, Serpentine, Spiral, Hourglass, Maze, River, Twister, Checkered, Long Road, Gauntlet, Descent, Fortress
-- [x] Each map has unique grid layout and waypoints
-- [x] Maps increase in difficulty/complexity
+### Bug fixes carried over from the Round 1 review
+- [x] Fixed the upgrade popup silently corrupting a tower's stats (two
+      independent upgrade systems both wrote to the same fields)
+- [x] Fixed the render loop and all pointer listeners rebuilding
+      themselves on every React render (`Canvas.jsx`, `Draggable.jsx`)
+- [x] Fixed unbounded slow-effect stacking (now floored)
+- [x] Fixed stray projectiles homing in on already-dead enemies
+- [x] Removed dead enemy Type 3 (now actually wired into spawns)
 
-## ✅ Home Page & Navigation
-- [x] Updated `HomePage.js` with 12 map selection buttons
-- [x] Added Alec Price branding + link to https://www.alecjprice.com
-- [x] Updated `LoginPage.js` to pass map selection through to game
-- [x] Updated URL query params: `?map=0` through `?map=11`
+### Tower system rewrite
+- [x] Expanded from 4 to 10 tower types, 5 levels each (base + 4 upgrades)
+- [x] Single data-driven `TOWER_DEFS` catalog — the only place tower stats
+      live, by design, so the old dual-system bug class can't recur
+- [x] Added 5 special tower categories beyond plain attack: poison
+      (non-stacking DOT), slow (floored), bank (passive income), boss
+      hunter (only fires on boss waves), support/aura (buffs nearby towers)
+- [x] Procedural shape/color rendering for every tower — no PNG art
+      needed; old tower/projectile PNG assets removed as dead files
+- [x] Visible per-level upgrade indicators: persistent ring per level,
+      numeric level badge, brief pulse on upgrade
+- [x] Upgrades are manual/gold-only now — no separate automatic system
+- [x] Tower unlock schedule generalized to 10 towers
+      (`TOWER_UNLOCK_WAVE` in `progression.js`)
 
-## ✅ Tower System Enhancements
-- [x] Updated `Tower.js`:
-  - Added `level` and `maxLevel` fields
-  - Added `upgradeCost` calculation
-  - Added `canUpgrade()` method
-  - Added `upgrade()` method (increases range, fireRate, damage)
-  - Updated `sell()` refund to scale with level
-  - Added base tower upgrade multipliers
-- [x] Updated tower placement in `GamePage.js` to apply global multipliers
-- [x] Tower unlock check before placement
+### Maps
+- [x] Expanded from 12 to 20 maps
+- [x] Every map has a distinct `enemyProfile` (speed/health multipliers,
+      armored/tank spawn chance) for mechanical, not just visual, variety
+- [x] Map picker (`/play`) now shows a real preview of each map's layout
+      before you commit, built from the map's own grid/waypoint data
+- [x] Map picker now actually shows and enforces lock state (previously
+      it silently let you navigate into locked maps)
 
-## ✅ Enemy Enhancements
-- [x] Updated `Enemy.js`:
-  - Added Type 4 (Armored) with armor stat
-  - Added Type 5 (Boss) with scaling support
-  - Updated `.hit()` to apply armor damage reduction
-  - Updated `.draw()` to render new types
+### Audio
+- [x] Replaced the single shared mp3 background track with a procedurally
+      generated per-map chiptune (Web Audio oscillators, no audio files,
+      deterministic per map index)
+- [x] New tower types mapped to the closest-fitting existing sound effect
+      instead of firing silently
 
-## ✅ Projectile Updates
-- [x] Updated `Projectile.js` to accept and apply `dmgMultiplier`
-- [x] Damage scaling for upgraded towers
+### Visual polish
+- [x] Poisoned/slowed enemies now show a status-effect ring on the board
+- [x] Enemy status-effect rendering unit-tested (`enemy.test.js`)
 
-## ✅ Tutorial System (New)
-- [x] Created `src/components/objects/Tutorial.js`
-- [x] 6-page interactive guide
-- [x] "Don't show again" checkbox
-- [x] Beautiful modal UI
-- [x] Integration with `tutorialHasBeenShown()` flag
+### Verification
+- [x] `npm run build` clean
+- [x] `npm run lint` — 0 errors (only pre-existing style warnings)
+- [x] `npm test` — 31 tests passing, including new unit tests covering
+      upgrade math, sell value, poison non-stacking, slow flooring, and
+      Bank/Bulwark firing conditions
+- [x] Live Playwright playthrough: map picker, tower placement, upgrade
+      popup, a played round — zero console/page errors
+- [x] Mobile-width (375px) layout checked: no horizontal overflow, tray
+      and map-preview grid both fit, canvas/panel stack correctly
+- [x] Dead code/assets removed: `Panel.jsx`, `Audio.js`, unused
+      `circle.png` duplicate, old tower/projectile PNGs
 
-## ✅ Tower UI Enhancements
-- [x] Updated `Draggable.js`:
-  - Pointer Events (replaces mouse-only)
-  - Lock icon (🔒) for locked towers
-  - Upgrade badge (+1, +2, etc.) for upgraded towers
-  - Cost display ($10, $20, etc.)
-  - Affordability check (opacity changes if can't afford)
-  - Coordinate scaling for responsive canvas
-- [x] Updated `Panel.js` to show unlock/upgrade status
-- [x] Grayed out locked towers
-
-## ✅ Game Logic Updates
-- [x] Updated `GamePage.js`:
-  - Tower unlock check on placement
-  - Wave reward grants:
-    - Tower unlocks at waves 5, 10, 15
-    - Tower upgrades every 3 waves (rotates through towers)
-  - Map unlock check at game start
-  - Map completion recording (waves reached)
-  - Tutorial modal integration
-  - Pointer Events for mouse/touch/pen
-  - Upgrade multiplier application to newly placed towers
-
-## ✅ Leaderboard Conversion
-- [x] Updated `highscores.js` to local-only (removed backend references)
-- [x] Updated `ScoresPage.js` to display local scores
-- [x] Shows: Rank, Name, Score, Wave, Map
-
-## ✅ Mobile Optimization
-- [x] Updated `Draggable.js` to use Pointer Events
-- [x] Responsive canvas sizing in `styles.css`
-- [x] Mobile breakpoints:
-  - 900px: Panel flows below canvas
-  - 480px: Further sizing adjustments
-- [x] Updated `public/index.html`:
-  - Viewport: no pinch-zoom during gameplay
-  - Meta tags: game description
-  - Title: "Tower Defense"
-- [x] Touch-action CSS to prevent accidental gestures
-- [x] Minimum 44px touch targets on buttons
-- [x] Coordinate scaling in makeEvents()
-
-## ✅ Styling Updates
-- [x] `styles.css` additions:
-  - `.tutorial-*` styles (modal, buttons, footer)
-  - `.draggable-tower.locked` and `.insufficient-funds` states
-  - `.tower-lock`, `.tower-upgrade-badge`, `.tower-cost` badges
-  - `.credits` and `.credits a` for home page branding
-  - Mobile breakpoints with responsive layout
-  - Touch-optimized button sizing
-
-## ✅ Build & Deployment
-- [x] `npm install --legacy-peer-deps` ✓
-- [x] `npm run build` ✓ (compiles successfully)
-- [x] No compilation errors
-- [x] Only pre-existing lint warnings (unused imports in other files)
-
-## ✅ Testing Checklist
-- [x] Tutorial shows on first play
-- [x] Tutorial can be skipped and hidden
-- [x] Map 1 starts unlocked
-- [x] Maps 2-12 show "locked" until prerequisites met
-- [x] Tower 1 starts unlocked
-- [x] Towers 2-4 show lock icon
-- [x] Wave 5 unlocks Tower 2
-- [x] Wave 10 unlocks Tower 3
-- [x] Wave 15 unlocks Tower 4
-- [x] Every 3 waves grants a tower upgrade
-- [x] Upgrades persist across game restarts
-- [x] Upgraded towers have visible badges
-- [x] Upgraded towers do more damage
-- [x] Mobile touch works for tower placement
-- [x] Mobile buttons are tap-friendly
-- [x] Score saving works
-- [x] Leaderboard displays
-
----
-
-## Ready for Next Phase
-
-All systems in place for:
-✅ Custom sprite integration (just replace image files)
-✅ Tower tuning (adjust costs, stats, unlock waves)
-✅ Map difficulty scaling
-✅ Kids to play on mobile or desktop
-✅ Tracking progress through browser localStorage
-
+### Known remaining gap
+- [ ] Balance numbers (unlock-wave schedule, per-map `enemyProfile`
+      multipliers, tower price/damage curves) are judgment calls, not the
+      product of hours of real playtesting — expect to want to tune these
+      once you've actually played through several maps.

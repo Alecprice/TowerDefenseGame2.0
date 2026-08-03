@@ -3,36 +3,38 @@ import { Link, useSearchParams } from 'react-router-dom';
 import Button from 'react-bootstrap/Button';
 
 import Canvas from '../objects/Canvas';
-import Draggable from '../objects/Draggable';
+import Draggable, { dragState } from '../objects/Draggable';
 import { Enemy } from "../objects/enemy";
 import { Block } from '../objects/block';
-import { Tower } from '../objects/tower';
+import { Tower, TOWER_DEFS, TOWER_TYPES, CATEGORY, META as TOWER_META, COSMETIC } from '../objects/tower';
 import { collision, convertToRoman } from '../utils/utils';
 import { maps } from '../data/maps';
-import { getPlayerName, saveHighScore } from '../utils/highscores';
+import { getPlayerName, saveHighScore, startGameSession } from '../utils/highscores';
 import {
-    getProgression, saveProgression, unlockTower, upgradeTowerPermanently,
-    recordMapWaveCompletion, isMapUnlocked, getMapWavesCompleted,
-    tutorialHasBeenShown, isTowerUnlocked, getTowerUpgradeLevel
+    unlockTower, recordMapWaveCompletion, isMapUnlocked, getMapWavesCompleted,
+    tutorialHasBeenShown, isTowerUnlocked, TOWER_UNLOCK_WAVE
 } from '../utils/progression';
-import useAudio from "../objects/Audio";
-import { Checkbox } from "@mui/material";
-import Audio1 from "../assets/audioClips/songformydeath.mp3";
+import { getMetaBonuses, awardRunCores } from '../utils/metaProgression';
+import { getDifficulty } from '../utils/difficulty';
+import { recordStat } from '../utils/achievements';
+import { drawDamageNumbers, resetDamageNumbers } from '../utils/damageNumbers';
+import { spawnBurst, updateAndDrawParticles, resetParticles } from '../utils/particles';
+import { resetRunStats, recordTowerPlaced, snapshotRunStats } from '../utils/runStats';
+import { startMapMusic, stopMusic, setMusicEnabled } from '../utils/music';
+import { setSfxEnabled } from '../utils/sfx';
 import Timer from '../objects/timer';
 import Popup from '../objects/Popup';
 import PauseMenu from '../objects/PauseMenu';
 import Tutorial from '../objects/Tutorial';
+import { gameSpeed } from '../utils/gameSpeed';
+import { mapTheme } from '../utils/mapTheme';
+import { playEnemyDeath, playBuyTower, playUnlockTower, playUiClick, playShieldBlock, playSplitterPop, playWaveCleared } from '../utils/sfx';
 
-
-import circleImg from "../objects/circle.png";
-const circle = new Image();
-circle.src = circleImg;
 
 export let towers = [];
 export let bullets = [];
 export let enemies = [];
 export let grid = [];
-export let selected = false;
 let waveTimer = Date.now();
 let bossSpawnedThisWave = false;
 
@@ -44,62 +46,46 @@ export const mouse = {
     height: .1,
 }
 
-//Game Audio is off by default
-function Radio() {
-    const audio = useAudio(Audio1, { volume: 0.8, playbackRate: 1.2 });
-    const [isChecked, setIsChecked] = React.useState(false);
-
-    return (
-        <div>
-            <p className="audio">
-                Toggle for audio{" "}
-                <Checkbox
-                    onChange={() => setIsChecked(!isChecked)}
-                    className="audio-bttn"
-                    onClick={() => {
-                        isChecked ? audio.play() : audio.stop();
-                    }}
-                />
-            </p>
-        </div>
-    );
-}
-
-const AudioFile = () => {
-    //Audio();
-    return <div>{Radio()}</div>;
-};
+// Sound is on by default. Actually starting the music still requires a
+// real user gesture (browsers block autoplay) - see the Play button and
+// toggleSound() below, both of which are real click handlers so they
+// satisfy that requirement the first time either one fires.
 
 window.addEventListener("keypress", function (e) {
     
 });
 
-const selectTower = () => {
-    for (let b = 0; b < grid.length; b++) {
-        if (mouse.x && mouse.y && collision(grid[b], mouse) && grid[b].tower) {
-            selected = grid[b].tower;
-            break;
-        } else {
-            selected = false;
-        }
-    }
-}
-
+const SPEED_STEPS = [0.5, 1, 2, 3, 5, 10];
 
 const init = () => {
     towers = [];
     bullets = [];
     enemies = [];
     grid = [];
-    selected = false;
     waveTimer = Date.now();
     bossSpawnedThisWave = false;
+}
+
+// Pure function of the wave number - mirrors the spawn-chance gates in
+// the draw() loop below (values.wave > N thresholds), so the preview
+// strip always describes what's actually possible next, not a
+// hand-maintained duplicate list that could drift out of sync.
+function buildUpcomingBadges(nextWave) {
+    const badges = [{ label: 'Grunt', className: 'badge-grunt' }];
+    if (nextWave > 3) badges.push({ label: 'Runner', className: 'badge-runner' });
+    if (nextWave > 5) badges.push({ label: 'Armored', className: 'badge-armored' });
+    if (nextWave > 8) badges.push({ label: 'Tank', className: 'badge-tank' });
+    if (nextWave > 18) badges.push({ label: 'Flyer', className: 'badge-flyer' });
+    if (nextWave > 22) badges.push({ label: 'Teleporter', className: 'badge-teleporter' });
+    if (nextWave > 0 && nextWave % 5 === 0) badges.push({ label: '⚠ BOSS', className: 'badge-boss' });
+    return badges;
 }
 
 const GamePage = (props) => {
     const [searchParams] = useSearchParams();
     const mapIndex = Math.min(maps.length - 1, Math.max(0, parseInt(searchParams.get('map'), 10) || 0));
     const map = maps[mapIndex];
+    const difficulty = getDifficulty(searchParams.get('difficulty'));
 
     const [gameState, setGameState] = useState('start');
     const [show, setShow] = useState(true);
@@ -108,22 +94,128 @@ const GamePage = (props) => {
     const [mapUnlocked, setMapUnlocked] = useState(isMapUnlocked(mapIndex));
     const [menuOpen, setMenuOpen] = useState(false);
     const wasPlayingRef = useRef(false);
+    const metaBonuses = useRef(getMetaBonuses()).current;
     const [values, setValues] = useState({
         score: 0,
-        money: 20,
+        money: Math.round((20 + metaBonuses.startGoldBonus) * difficulty.startMoneyMult),
         wave: 0,
         enemyTotal: 0,
         enemySpawned: 0,
-        lives: 10
+        lives: 10 + metaBonuses.startLivesBonus
     });
-    const buttonRef = useRef();
-    const upgradeButtonRef = useRef();
+    const [speedLabel, setSpeedLabel] = useState(1);
+    const toggleSpeed = () => {
+        const currentIndex = SPEED_STEPS.indexOf(speedLabel);
+        const next = SPEED_STEPS[(currentIndex + 1) % SPEED_STEPS.length];
+        gameSpeed.value = next;
+        setSpeedLabel(next);
+    }
+    // One switch for all sound - sound effects and music both follow it,
+    // rather than two separate controls a kid has to find and understand.
+    const [soundOn, setSoundOn] = useState(true);
+    const toggleSound = () => {
+        const next = !soundOn;
+        setSoundOn(next);
+        setSfxEnabled(next);
+        setMusicEnabled(next);
+        if (next) {
+            startMapMusic(mapIndex); // this click is a real user gesture, so autoplay is allowed
+        } else {
+            stopMusic();
+        }
+    }
     const scoreSavedRef = useRef(false);
-    let currentRef = buttonRef.current;
+    const coresAwardedRef = useRef(false);
+    const achievementsRecordedRef = useRef(false);
+    const runLabelRef = useRef(map.name);
+    const [coresEarned, setCoresEarned] = useState(0);
+    const [runSummary, setRunSummary] = useState(null);
+    const sessionIdRef = useRef(null);
+    const lastFrameTimeRef = useRef(Date.now());
+    const bankAccumRef = useRef(0);
+    // Achievement tracking for this run - see the game-over effect below,
+    // where these get folded into the persistent lifetime stats in
+    // achievements.js. Plain refs, not state: none of this needs to
+    // trigger a re-render mid-run, only gets read once at game-over.
+    const noLivesLostRef = useRef(true);
+    const flawlessCountedRef = useRef(false);
+    const maxSupportOnBoardRef = useRef(0);
+    // Direct DOM refs for the boss HP bar - updated straight from the
+    // draw loop (every animation frame) rather than through React state,
+    // same reasoning as the tower range-circle preview: a boss's health
+    // changes far too often for a state-triggered re-render per hit.
+    const bossBarWrapRef = useRef(null);
+    const bossBarFillRef = useRef(null);
+    // Screen shake on boss death: a short-lived offset applied to the
+    // whole canvas draw via ctx.translate() at the top of draw() and
+    // undone at the end - see the shake block there.
+    const shakeUntilRef = useRef(0);
+    const shakeMagnitudeRef = useRef(0);
+    // Wave-cleared banner: a plain DOM ref toggled directly (not React
+    // state) so re-triggering its CSS animation on the very next wave
+    // doesn't need a render cycle to restart.
+    const waveBannerRef = useRef(null);
+
+    // The actually-selected Tower instance (for drawing its range circle
+    // and for the upgrade/sell actions). This lives in a ref, not state,
+    // because it's read every animation frame by the game loop and doesn't
+    // need to trigger a React re-render by itself.
+    const selectedTowerRef = useRef(null);
+    // What the modal displays. This IS React state - previously the modal
+    // read a plain mutable variable directly in JSX, which React has no way
+    // to know changed, so the popup could show stale info (wrong cost, wrong
+    // level, upgrade button not yet visible) right after selecting a tower.
+    const [modalInfo, setModalInfo] = useState(null);
+
+    const buildModalInfo = (tower) => ({
+        type: tower.type,
+        level: tower.level,
+        maxLevel: tower.maxLevel,
+        upgradeCost: tower.upgradeCost,
+        canUpgrade: tower.canUpgrade(),
+        sellValue: tower.getSellValue(),
+    });
+
+    const selectTower = () => {
+        let found = null;
+        for (let b = 0; b < grid.length; b++) {
+            if (mouse.x && mouse.y && collision(grid[b], mouse) && grid[b].tower) {
+                found = grid[b].tower;
+                break;
+            }
+        }
+        selectedTowerRef.current = found;
+        setModalInfo(found ? buildModalInfo(found) : null);
+    }
 
     if (gameState === 'start') {
         init();
+        mapTheme.value = map.theme || 'grass';
         scoreSavedRef.current = false;
+        coresAwardedRef.current = false;
+        achievementsRecordedRef.current = false;
+        setRunSummary(null);
+        sessionIdRef.current = null;
+        TOWER_META.dmgMult = metaBonuses.dmgMult;
+        TOWER_META.fireRateMult = metaBonuses.fireRateMult;
+        TOWER_META.bankMult = metaBonuses.bankMult;
+        COSMETIC.hueShift = metaBonuses.paletteHueShift;
+        noLivesLostRef.current = true;
+        flawlessCountedRef.current = false;
+        maxSupportOnBoardRef.current = 0;
+        resetDamageNumbers();
+        resetParticles();
+        resetRunStats();
+        shakeUntilRef.current = 0;
+        const runLabel = difficulty.key === 'easy' ? map.name : `${map.name} (${difficulty.name})`;
+        runLabelRef.current = runLabel;
+        // Anchors a server-side clock for this round, used to sanity-check
+        // the score/wave when it's submitted at the end (see highscores.js).
+        // Difficulty is threaded through as a suffix on the map name sent
+        // to Supabase, rather than a schema change - session creation and
+        // score submission both use this same string, so submit-score's
+        // "map mismatch" check still lines up.
+        startGameSession(runLabel, 'v2').then(id => { sessionIdRef.current = id; });
         for (let y = 0; y < 12; y++) {
             for (let x = 0; x < 18; x++) {
                 grid.push(new Block(x * 50, y * 50, map.grid[y][x]));
@@ -135,12 +227,39 @@ const GamePage = (props) => {
     useEffect(() => {
         if (gameState === 'end' && !scoreSavedRef.current) {
             scoreSavedRef.current = true;
-            saveHighScore(getPlayerName(), values.score, values.wave, map.name);
+            saveHighScore(sessionIdRef.current, getPlayerName(), values.score, values.wave, runLabelRef.current, 'v2');
         }
-    }, [gameState, values.score, values.wave, map.name]);
+        if (gameState === 'end' && !coresAwardedRef.current) {
+            coresAwardedRef.current = true;
+            setCoresEarned(awardRunCores(values.wave, values.score));
+        }
+        if (gameState === 'end' && !achievementsRecordedRef.current) {
+            achievementsRecordedRef.current = true;
+            setRunSummary(snapshotRunStats());
+            recordStat('bestWaveAnyMap', values.wave, 'max');
+            recordStat('maxSupportTowersAtOnce', maxSupportOnBoardRef.current, 'max');
+            if (difficulty.key === 'challenge') {
+                recordStat('challengeBestWave', values.wave, 'max');
+            }
+            const towersUnlockedCount = TOWER_TYPES.filter(t => isTowerUnlocked(t)).length;
+            recordStat('towersUnlocked', towersUnlockedCount, 'max');
+            const mapsUnlockedCount = maps.filter((_, i) => isMapUnlocked(i)).length;
+            recordStat('mapsUnlocked', mapsUnlockedCount, 'max');
+        }
+    }, [gameState, values.score, values.wave, map.name, difficulty.key]);
+
+    useEffect(() => {
+        return () => stopMusic();
+    }, []);
 
     const draw = (ctx) => {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+        ctx.save();
+        if (Date.now() < shakeUntilRef.current) {
+            const remaining = (shakeUntilRef.current - Date.now()) / 400; // fades out with the 400ms duration used below
+            const mag = shakeMagnitudeRef.current * Math.max(0, remaining);
+            ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
+        }
         grid.forEach(block => {
             block.draw(ctx);
             block.mouseIsOver(mouse);
@@ -148,35 +267,18 @@ const GamePage = (props) => {
         });
         if (gameState === 'playing') {
             if (values.enemyTotal === 0 && values.wave > 0) {
-                // Award rewards for completing the previous wave
-                const prog = getProgression();
-                let rewardsGranted = false;
-
-                // Unlock towers at specific wave milestones
-                if (values.wave === 5 && !isTowerUnlocked(2)) {
-                    unlockTower(2);
-                    setMessage('Tower 2 Unlocked!');
-                    rewardsGranted = true;
-                }
-                if (values.wave === 10 && !isTowerUnlocked(3)) {
-                    unlockTower(3);
-                    setMessage('Tower 3 Unlocked!');
-                    rewardsGranted = true;
-                }
-                if (values.wave === 15 && !isTowerUnlocked(4)) {
-                    unlockTower(4);
-                    setMessage('Tower 4 Unlocked!');
-                    rewardsGranted = true;
-                }
-
-                // Grant tower upgrades every 3 waves
-                if (values.wave % 3 === 0) {
-                    const towerToUpgrade = (values.wave / 3) % 4 + 1; // Cycle through towers
-                    if (upgradeTowerPermanently(towerToUpgrade)) {
-                        setMessage(msg => msg || `Tower ${towerToUpgrade} Upgraded!`);
-                        rewardsGranted = true;
+                // Unlock towers at specific wave milestones. Tower
+                // *upgrades* are entirely separate now - they're bought
+                // per-placed-tower with gold via the in-game popup (see
+                // upgradeTower() below) and reset each round.
+                Object.entries(TOWER_UNLOCK_WAVE).forEach(([towerTypeStr, unlockWave]) => {
+                    const towerType = Number(towerTypeStr);
+                    if (values.wave === unlockWave && !isTowerUnlocked(towerType)) {
+                        unlockTower(towerType);
+                        setMessage(`${TOWER_DEFS[towerType].name} Unlocked!`);
+                        playUnlockTower();
                     }
-                }
+                });
 
                 // Record wave completion for map unlock progression
                 recordMapWaveCompletion(mapIndex, values.wave);
@@ -188,6 +290,25 @@ const GamePage = (props) => {
                 const isBossWave = values.wave + 1 > 0 && (values.wave + 1) % 5 === 0;
                 let updatedWave = values.wave + 1;
                 bossSpawnedThisWave = false;
+                if (values.wave > 0) {
+                    // values.wave is the wave that just finished (0 means
+                    // this is the very first wave starting, not a real
+                    // clear) - bannerRef is a plain DOM toggle so the
+                    // animation restarts cleanly even back-to-back.
+                    playWaveCleared();
+                    if (waveBannerRef.current) {
+                        waveBannerRef.current.textContent = `Wave ${values.wave} Cleared!`;
+                        waveBannerRef.current.classList.remove('wave-banner-show');
+                        void waveBannerRef.current.offsetWidth; // restart the CSS animation
+                        waveBannerRef.current.classList.add('wave-banner-show');
+                    }
+                }
+                if (updatedWave === 6 && noLivesLostRef.current && !flawlessCountedRef.current) {
+                    // Wave 5 just finished (we're about to start wave 6)
+                    // with no life lost yet this run - count it once.
+                    flawlessCountedRef.current = true;
+                    recordStat('flawlessFiveWaveRuns', 1, 'add');
+                }
                 setValues(previousState => {
                     return {
                         ...previousState,
@@ -199,16 +320,50 @@ const GamePage = (props) => {
                 waveTimer = Date.now();
             } else if (values.enemySpawned < values.wave) {
                 const time = Date.now();
-                const waitTime = values.enemySpawned === 0 ? 2000 : 900;
+                const waitTime = (values.enemySpawned === 0 ? 2000 : 900) / gameSpeed.value;
                 if (time >= waveTimer + waitTime) {
+                    const profile = map.enemyProfile || { armoredChance: 0.25, tankChance: 0.12, speedMult: 1, healthMult: 1 };
                     let type = 1; // Grunt
                     if (values.wave > 3) {
                         type = Math.floor(Math.random() * 2) + 1; // Grunt or Runner
                     }
-                    if (values.wave > 5 && Math.random() < 0.25) {
+                    if (values.wave > 5 && Math.random() < Math.min(0.9, profile.armoredChance * difficulty.mult)) {
                         type = 4; // Armored - resists a flat chunk of every hit
                     }
-                    enemies.push(new Enemy(map.waypoints[0].x - 60, map.waypoints[0].y, type));
+                    if (values.wave > 8 && Math.random() < Math.min(0.9, profile.tankChance * difficulty.mult)) {
+                        type = 3; // Tank - high HP, high value/score
+                    }
+                    if (values.wave > 18 && Math.random() < Math.min(0.3, 0.10 * difficulty.mult)) {
+                        type = 6; // Flyer - immune to Frost Tower's slow entirely
+                    }
+                    if (values.wave > 22 && Math.random() < Math.min(0.25, 0.08 * difficulty.mult)) {
+                        type = 7; // Teleporter - periodically blinks forward along the path
+                    }
+                    // +5% HP per wave past the first, so difficulty keeps
+                    // climbing even on maps/waves where tower upgrades have
+                    // made short work of the base enemy stats. Combined
+                    // with the map's own healthMult for per-map flavor, and
+                    // the selected difficulty tier's multiplier on top.
+                    const waveScale = (1 + (values.wave - 1) * 0.05) * profile.healthMult * difficulty.mult;
+                    const enemy = new Enemy(map.waypoints[0].x - 60, map.waypoints[0].y, type, waveScale, difficulty.mult);
+                    enemy.speed *= profile.speedMult;
+                    enemy.baseSpeed = enemy.speed;
+                    // Two more late-game spawn mechanics, layered on top of
+                    // armored/tank the same way those are: gated behind a
+                    // wave threshold, chance scaled (and capped) by the
+                    // difficulty multiplier.
+                    if (values.wave > 10 && Math.random() < Math.min(0.5, 0.10 * difficulty.mult)) {
+                        // Shielded: absorbs the next chunk of damage before
+                        // any of it touches real health - see Enemy.hit().
+                        enemy.shieldHP = Math.round(enemy.maxHealth * 0.35);
+                    }
+                    if (values.wave > 14 && Math.random() < Math.min(0.35, 0.08 * difficulty.mult)) {
+                        // Splitter: on death (not on reaching the end),
+                        // breaks into two weaker Grunts instead of just
+                        // disappearing - see the death-handling block below.
+                        enemy.splitter = true;
+                    }
+                    enemies.push(enemy);
                     let updatedSpawn = values.enemySpawned + 1;
                     setValues(previousState => { return { ...previousState, enemySpawned: updatedSpawn } });
                     waveTimer = time;
@@ -216,10 +371,11 @@ const GamePage = (props) => {
             } else if (values.wave % 5 === 0 && !bossSpawnedThisWave) {
                 // Last thing to arrive on a boss wave: one scaled-up boss.
                 const time = Date.now();
-                if (time >= waveTimer + 1500) {
-                    const boss = new Enemy(map.waypoints[0].x - 60, map.waypoints[0].y, 5);
+                if (time >= waveTimer + 1500 / gameSpeed.value) {
+                    const profile = map.enemyProfile || { healthMult: 1 };
+                    const boss = new Enemy(map.waypoints[0].x - 60, map.waypoints[0].y, 5, 1, difficulty.mult);
                     const bossTier = values.wave / 5;
-                    boss.maxHealth *= bossTier;
+                    boss.maxHealth *= bossTier * profile.healthMult * difficulty.mult;
                     boss.health = boss.maxHealth;
                     boss.value *= bossTier;
                     boss.score *= bossTier;
@@ -230,6 +386,57 @@ const GamePage = (props) => {
             }
         }
         
+        const now = Date.now();
+        const dt = Math.min(0.25, (now - lastFrameTimeRef.current) / 1000) * gameSpeed.value;
+        lastFrameTimeRef.current = now;
+
+        if (gameState === 'playing') {
+            // Beacon (support) towers buff every other tower in their aura
+            // range. Recomputed fresh every frame from scratch so removing
+            // a Beacon (sold) immediately drops its bonus - nothing here
+            // is permanently baked into another tower's stats.
+            for (let t = 0; t < towers.length; t++) {
+                towers[t].auraBonus = { range: 0, dmg: 0, fireRate: 0 };
+            }
+            for (let t = 0; t < towers.length; t++) {
+                const beacon = towers[t];
+                if (beacon.def.category !== CATEGORY.SUPPORT) continue;
+                for (let o = 0; o < towers.length; o++) {
+                    if (o === t) continue;
+                    const other = towers[o];
+                    if (other.def.category === CATEGORY.SUPPORT) continue;
+                    const dx = beacon.mid.x - other.mid.x, dy = beacon.mid.y - other.mid.y;
+                    if (dx * dx + dy * dy <= beacon.auraRange * beacon.auraRange) {
+                        other.auraBonus.range += beacon.rangeBonus;
+                        other.auraBonus.dmg += beacon.dmgBonus;
+                        other.auraBonus.fireRate += beacon.fireRateBonus;
+                    }
+                }
+            }
+
+            // Support Squad achievement tracking - just a running max of
+            // how many support towers were on the board at once.
+            const supportCount = towers.reduce((n, t) => n + (t.def.category === CATEGORY.SUPPORT ? 1 : 0), 0);
+            if (supportCount > maxSupportOnBoardRef.current) maxSupportOnBoardRef.current = supportCount;
+
+            // Bank towers passively generate gold. Accumulated as a
+            // fraction and only flushed into React state once a whole
+            // dollar has built up, so this doesn't trigger a re-render
+            // every single frame.
+            let incomePerSecond = 0;
+            for (let t = 0; t < towers.length; t++) {
+                if (towers[t].def.category === CATEGORY.BANK) incomePerSecond += towers[t].effectiveIncome();
+            }
+            if (incomePerSecond > 0) {
+                bankAccumRef.current += incomePerSecond * dt;
+                if (bankAccumRef.current >= 1) {
+                    const whole = Math.floor(bankAccumRef.current);
+                    bankAccumRef.current -= whole;
+                    setValues(previousState => ({ ...previousState, money: previousState.money + whole }));
+                }
+            }
+        }
+
         for (let t = 0; t < towers.length; t++) {
             towers[t].draw(ctx);
             if (gameState === 'playing') {
@@ -245,27 +452,39 @@ const GamePage = (props) => {
                 }
             }
         }
-         if (selected) {
-             selected.drawRange(ctx);
-             if (currentRef) {
-                 currentRef.style.display = 'Block';
-             }
-             if (upgradeButtonRef.current) {
-                 upgradeButtonRef.current.style.display = selected.canUpgrade() ? 'Block' : 'None';
-             }
-         } else if (!selected) {
-             if (currentRef) {
-                 currentRef.style.display = 'None';
-             }
-             if (upgradeButtonRef.current) {
-                 upgradeButtonRef.current.style.display = 'None';
-             }
-         }
+        if (selectedTowerRef.current) {
+            selectedTowerRef.current.drawRange(ctx);
+        }
+        if (dragState.active && dragState.type && gameState === 'playing') {
+            const hoveredBlock = grid.find(b => b.hover);
+            if (hoveredBlock && hoveredBlock.type !== 1 && !hoveredBlock.tower) {
+                const def = TOWER_DEFS[dragState.type];
+                const lvl = def.levels[0];
+                const previewRange = def.category === CATEGORY.SUPPORT ? lvl.auraRange : (lvl.range || 0);
+                const cx = hoveredBlock.x + 25, cy = hoveredBlock.y + 25;
+                ctx.save();
+                if (def.global || previewRange > 1000) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+                    ctx.setLineDash([8, 6]);
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(4, 4, ctx.canvas.width - 8, ctx.canvas.height - 8);
+                } else {
+                    ctx.beginPath();
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+                    ctx.arc(cx, cy, previewRange, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
         
         for (let b = 0; b < bullets.length; b++){
             bullets[b].draw(ctx);
             if (gameState === 'playing') {
-                bullets[b].move();
+                bullets[b].move(enemies);
                 if (bullets[b].end) {
                     bullets.splice(b, 1);
                     b--;
@@ -277,11 +496,12 @@ const GamePage = (props) => {
             enemies[e].drawHealth(ctx);
             if (gameState === 'playing') {
                 enemies[e].move(map.waypoints);
-                //enemies[e].hit(bullets);
+                enemies[e].tick(dt);
                 if (enemies[e].end || enemies[e].dead) {
                     if (enemies[e].end) {
                         let updatedLives = values.lives - enemies[e].atk;
                         let updatedEnemyTotal = values.enemyTotal - 1;
+                        noLivesLostRef.current = false;
                         setValues(previousState => { return { ...previousState, enemyTotal: updatedEnemyTotal, lives: updatedLives } });
                         //console.log(lives);
                     }
@@ -289,7 +509,46 @@ const GamePage = (props) => {
                         let updatedScore = values.score + enemies[e].score;
                         let updatedMoney = values.money + enemies[e].value;
                         let updatedEnemyTotal = values.enemyTotal - 1;
+                        if (enemies[e].type === 5) {
+                            recordStat('bossKills', 1, 'add');
+                            shakeUntilRef.current = Date.now() + 400;
+                            shakeMagnitudeRef.current = 10;
+                            spawnBurst(enemies[e].mid.x, enemies[e].mid.y, { count: 32, color: '#ff595e', speed: 6.5, life: 800 });
+                        }
+                        if (enemies[e].isSplitChild) {
+                            recordStat('splitKills', 1, 'add');
+                        }
+                        if (enemies[e].splitter) {
+                            playSplitterPop();
+                            spawnBurst(enemies[e].mid.x, enemies[e].mid.y, { count: 10, color: '#a78bfa', speed: 3, life: 400 });
+                            // Break into two weaker Grunts continuing from
+                            // the same point on the path, instead of just
+                            // disappearing. They're marked isSplitChild
+                            // (for the achievement above) and NOT
+                            // themselves splitters, so this can't chain.
+                            const parent = enemies[e];
+                            for (let s = 0; s < 2; s++) {
+                                const child = new Enemy(parent.x + (s === 0 ? -10 : 10), parent.y, 1, 1, difficulty.mult);
+                                child.maxHealth = Math.max(1, Math.round(parent.maxHealth * 0.32));
+                                child.health = child.maxHealth;
+                                child.value = Math.max(1, Math.round(parent.value * 0.4));
+                                child.score = Math.max(1, Math.round(parent.score * 0.4));
+                                child.waypoint = parent.waypoint;
+                                child.distance = parent.distance;
+                                child.speed = parent.speed;
+                                child.baseSpeed = parent.baseSpeed;
+                                child.mid = { x: child.x + child.width / 2, y: child.y + child.height / 2 };
+                                child.isSplitChild = true;
+                                enemies.push(child);
+                            }
+                            // Parent is -1'd below along with every other
+                            // death; the 2 children need to be added back
+                            // in so the wave-complete check (enemyTotal
+                            // hitting 0) still waits for them too.
+                            updatedEnemyTotal += 2;
+                        }
                         setValues(previousState => { return { ...previousState, score: updatedScore, money: updatedMoney, enemyTotal: updatedEnemyTotal } });
+                        playEnemyDeath(enemies[e].type === 5);
                     }
                     //let updatedEnemyTotal = waves.enemyTotal - 1;
                     //setWaves({wave: waves.wave, enemyTotal: updatedEnemyTotal});
@@ -301,6 +560,26 @@ const GamePage = (props) => {
         if (values.lives <= 0) {
             setGameState('end');
         }
+
+        // Boss HP bar: updated straight through refs every frame (see
+        // the comment by bossBarWrapRef's declaration) rather than
+        // through React state.
+        if (bossBarWrapRef.current) {
+            const boss = enemies.find(en => en.type === 5);
+            if (boss && gameState === 'playing') {
+                bossBarWrapRef.current.style.display = 'flex';
+                if (bossBarFillRef.current) {
+                    const pct = Math.max(0, Math.min(1, boss.health / boss.maxHealth)) * 100;
+                    bossBarFillRef.current.style.width = `${pct}%`;
+                }
+            } else {
+                bossBarWrapRef.current.style.display = 'none';
+            }
+        }
+
+        drawDamageNumbers(ctx);
+        updateAndDrawParticles(ctx);
+        ctx.restore();
 
         if (gameState === 'paused') {
             waveTimer += (1000 / 144);
@@ -314,38 +593,43 @@ const GamePage = (props) => {
         grid.forEach(block => {
             if (block.hover && block.type !== 1 && !block.tower) {
                 let tower = new Tower(block.x, block.y, type);
-                const upgradeLevel = getTowerUpgradeLevel(type);
-                if (upgradeLevel > 0) {
-                    tower.dmgMultiplier = 1 + 0.5 * upgradeLevel;
-                    tower.range = tower.baseRange * (1 + 0.15 * upgradeLevel);
-                    tower.fireRate = tower.baseFireRate * Math.max(0.3, 1 - 0.15 * upgradeLevel);
-                }
                 if (tower.price <= values.money) {
                     towers.push(tower);
                     block.tower = tower;
-                    setValues(previousState => { return {...previousState, money: values.money - towers[towers.length - 1].price } });
+                    setValues(previousState => { return {...previousState, money: previousState.money - tower.price } });
+                    playBuyTower();
+                    recordTowerPlaced(type);
                 }
                 else {
-                    setMessage('Not enough money. U R PoOr LoL!');
+                    setMessage('Not enough gold yet - defeat more enemies to earn more!');
                 }
             }
         });
     }
     const sellTower = () => {
-        if (selected) {
-            let refund = selected.sell();
-            let updatedMoney = values.money + refund;
-            setValues(previousState => { return { ...previousState, money: updatedMoney } });
+        const tower = selectedTowerRef.current;
+        if (tower) {
+            playUiClick();
+            const refund = Math.round(tower.sell() * difficulty.refundMult);
+            setValues(previousState => { return { ...previousState, money: previousState.money + refund } });
+            closeTowerModal();
         }
     }
+    const closeTowerModal = () => {
+        selectedTowerRef.current = null;
+        setModalInfo(null);
+    }
     const upgradeTower = () => {
-        if (selected && selected.canUpgrade()) {
-            const cost = selected.upgradeCost;
+        const tower = selectedTowerRef.current;
+        if (tower && tower.canUpgrade()) {
+            const cost = tower.upgradeCost;
             if (cost <= values.money) {
-                selected.upgrade();
+                tower.upgrade();
                 setValues(previousState => { return { ...previousState, money: previousState.money - cost } });
+                setModalInfo(buildModalInfo(tower));
+                recordStat('goldSpentUpgrading', cost, 'add');
             } else {
-                setMessage('Not enough money. U R PoOr LoL!');
+                setMessage('Not enough gold yet - defeat more enemies to earn more!');
             }
         }
     }
@@ -417,17 +701,38 @@ const GamePage = (props) => {
     }
 
     return (
-        <div>
+        <div className="game-screen">
             <Tutorial isOpen={showTutorial} onClose={() => setShowTutorial(false)} />
-            <AudioFile></AudioFile>
             <h1 className="game-title">{map.name}</h1>
+            <p className="rotate-hint">
+                <span className="rotate-hint__icon" aria-hidden="true">📱</span>
+                Turn your phone sideways for a full-screen view
+            </p>
             <div className="waves-scores-wrapper">
                 <div className="wave-label">Wave: {convertToRoman(values.wave)} : [{values.wave}]</div>
                 <div className="score-label">Score: {values.score}</div>
+                {difficulty.key !== 'easy' && (
+                    <div className={`difficulty-label difficulty-${difficulty.key}`}>{difficulty.name}</div>
+                )}
                 <Timer state={gameState}/>
+            </div>
+            {gameState === 'playing' && (
+                <div className="next-wave-strip">
+                    <span className="next-wave-label">Next:</span>
+                    {buildUpcomingBadges(values.wave + 1).map(b => (
+                        <span key={b.label} className={`next-wave-badge ${b.className}`}>{b.label}</span>
+                    ))}
+                </div>
+            )}
+            <div className="boss-bar-wrap" ref={bossBarWrapRef} style={{ display: 'none' }}>
+                <div className="boss-bar-label">⚠ BOSS</div>
+                <div className="boss-bar-track">
+                    <div className="boss-bar-fill" ref={bossBarFillRef}></div>
+                </div>
             </div>
             <div className="game">
                 <Canvas draw={draw} events={makeEvents} width='900' height='600' />
+                <div className="wave-banner" ref={waveBannerRef}></div>
                 <div className="panel">
                     <div className='panel-top'>
                         <div className='money'>
@@ -437,74 +742,65 @@ const GamePage = (props) => {
                             Lives: {values.lives}
                         </div>
                         <button className='menu' onClick={openMenu}>Menu</button>
+                        <button className='sound-toggle' onClick={() => { playUiClick(); toggleSound(); }}>
+                            {soundOn ? '🔊 Sound' : '🔈 Sound'}
+                        </button>
                     </div>
                     <div className='panel-mid'>
                         <div className='towers'>
-                            <Draggable 
-                                place={placeTower} 
-                                type={1} 
-                                state={gameState}
-                                isUnlocked={isTowerUnlocked(1)}
-                                cost={10}
-                                upgradeLevel={getTowerUpgradeLevel(1)}
-                                money={values.money}
-                            />
-                            <Draggable 
-                                place={placeTower} 
-                                type={2} 
-                                state={gameState}
-                                isUnlocked={isTowerUnlocked(2)}
-                                cost={20}
-                                upgradeLevel={getTowerUpgradeLevel(2)}
-                                money={values.money}
-                            />
-                            <Draggable 
-                                place={placeTower} 
-                                type={3} 
-                                state={gameState}
-                                isUnlocked={isTowerUnlocked(3)}
-                                cost={30}
-                                upgradeLevel={getTowerUpgradeLevel(3)}
-                                money={values.money}
-                            />
-                            <Draggable 
-                                place={placeTower} 
-                                type={4} 
-                                state={gameState}
-                                isUnlocked={isTowerUnlocked(4)}
-                                cost={40}
-                                upgradeLevel={getTowerUpgradeLevel(4)}
-                                money={values.money}
-                            />
+                            {TOWER_TYPES.map(type => (
+                                <Draggable
+                                    key={type}
+                                    place={placeTower}
+                                    type={type}
+                                    state={gameState}
+                                    isUnlocked={isTowerUnlocked(type)}
+                                    cost={TOWER_DEFS[type].levels[0].price}
+                                    money={values.money}
+                                />
+                            ))}
                         </div>
                     </div>
+                    {modalInfo && (
+                        <div className='tower-modal-backdrop' onClick={closeTowerModal}>
+                            <div className='tower-modal-card' onClick={e => e.stopPropagation()}>
+                                <button className='tower-modal-close' onClick={() => { playUiClick(); closeTowerModal(); }} aria-label="Close">×</button>
+                                <div className='tower-modal-title'>{TOWER_DEFS[modalInfo.type]?.name || 'Tower'}</div>
+                                <div className='tower-modal-level'>
+                                    {modalInfo.canUpgrade
+                                        ? `Level ${modalInfo.level} / ${modalInfo.maxLevel}`
+                                        : `Level ${modalInfo.level} / ${modalInfo.maxLevel} (Max)`}
+                                </div>
+                                <div className='tower-modal-actions'>
+                                    {modalInfo.canUpgrade && (
+                                        <div className='upgradeButton'>
+                                            <button className='upgrade' onClick={upgradeTower}>
+                                                {`Upgrade ($${modalInfo.upgradeCost})`}
+                                            </button>
+                                        </div>
+                                    )}
+                                    <button className='sell' onClick={sellTower}>
+                                        {`Sell ($${modalInfo.sellValue})`}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className='panel-bottom'>
-                        <div ref={ buttonRef } className='sellButton'>
-                            <button className='sell' onClick={ sellTower }>Sell</button>
-                        </div>
-                        <div ref={ upgradeButtonRef } className='upgradeButton'>
-                            <button className='upgrade' onClick={ upgradeTower }>
-                                {selected ? `Upgrade ($${selected.upgradeCost})` : 'Upgrade'}
-                            </button>
-                        </div>
                         <div className='message'>
                             {message}
                         </div>
                         <div className='play-pause'>
                             {show ?
-                                (<button className='play' onClick={function (e) { setGameState('playing'); setShow(!show) }}>Play</button>):
-                                (<button className='pause' onClick={function (e) { setGameState('paused'); setShow(!show) }}>Pause</button>)}
+                                (<button className='play' onClick={function (e) { playUiClick(); setGameState('playing'); setShow(!show); if (soundOn) startMapMusic(mapIndex); }}>Play</button>):
+                                (<button className='pause' onClick={function (e) { playUiClick(); setGameState('paused'); setShow(!show) }}>Pause</button>)}
+                            <button className='speed' onClick={() => { playUiClick(); toggleSpeed(); }}>{speedLabel}x Speed</button>
                         </div>
                     </div>
                 </div>
             </div>
-            <Popup state={gameState} />
+            <Popup state={gameState} wave={values.wave} coresEarned={coresEarned} runSummary={runSummary} />
             <PauseMenu show={menuOpen} onResume={resumeFromMenu} />
-            <div className="container game-footer">
-                <Link to='/scores' >
-                    <Button variant="outline-light" size="sm">Leaderboard</Button>
-                </Link>
-            </div>
         </div>
     );
 }

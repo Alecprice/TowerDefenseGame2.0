@@ -4,36 +4,73 @@
 
 const PROGRESSION_KEY = 'td_progression';
 const TUTORIAL_KEY = 'td_tutorial_shown';
+const MAP_COUNT = 50;
 
 const DEFAULT_PROGRESSION = {
-    // Tower unlock states (index = tower type 1-4)
-    // true = unlocked, false = locked
-    towerUnlocks: [true, false, false, false],
-    
-    // Upgrade level for each tower (0-5)
-    // Applied as global multiplier to all towers of that type
-    towerUpgradeLevels: [0, 0, 0, 0],
-    
+    // Tower unlock states (index = tower type 1-10)
+    // true = unlocked, false = locked. Only the Striker (type 1) starts
+    // available - see TOWER_UNLOCK_WAVE below for when the rest unlock.
+    towerUnlocks: new Array(15).fill(false).map((_, i) => i === 0),
+
     // Waves completed on each map index
-    mapWavesCompleted: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    
+    mapWavesCompleted: new Array(MAP_COUNT).fill(0),
+
     // Highest wave reached on each map (for display)
-    mapHighestWaves: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    mapHighestWaves: new Array(MAP_COUNT).fill(0),
 };
+
+// Pads a saved array up to `length` with `fill`, preserving whatever
+// progress was already in it - used when the map/tower roster grows
+// (e.g. 20 -> 50 maps, 10 -> 15 towers) so existing players don't lose
+// progress on the maps/towers they already had.
+function padArray(arr, length, fill) {
+    if (!Array.isArray(arr)) return new Array(length).fill(fill);
+    if (arr.length >= length) return arr.slice(0, length);
+    return [...arr, ...new Array(length - arr.length).fill(fill)];
+}
+
+// Which global wave count unlocks each tower type. Spread out so a full
+// roster takes real, sustained progress rather than unlocking everything
+// on the first map.
+export const TOWER_UNLOCK_WAVE = {
+    7: 3,   // Frost Tower - early crowd control
+    4: 6,   // Burner
+    6: 9,   // Toxin Spire
+    3: 12,  // Blaster
+    8: 15,  // Bank
+    2: 18,  // Sniper
+    10: 21, // Beacon
+    5: 24,  // Cannon
+    9: 27,  // Bulwark
+    11: 30, // Sharpshooter Nest
+    12: 33, // Ammo Depot
+    13: 36, // Overclock Rig
+    15: 39, // Farseer Spire
+    14: 42, // Command Spire - last, and the strongest support
+};
+
+// NOTE: Tower upgrades are intentionally NOT tracked here. Upgrades are a
+// per-tower, in-round, gold-purchased thing (see tower.js / the in-game
+// popup) and reset every game. There used to be a second, automatic,
+// permanent upgrade system layered on top of that one - it was removed
+// because the two systems stomped on each other's math (a manual upgrade
+// would silently wipe out an automatic one). Tower *unlocks* below are a
+// separate, permanent concept ("is this tower type available at all") and
+// are unaffected by this.
 
 export function getProgression() {
     try {
         const raw = localStorage.getItem(PROGRESSION_KEY);
         if (!raw) return { ...DEFAULT_PROGRESSION };
         const loaded = JSON.parse(raw);
-        // Merge with defaults to handle new fields
+        // Merge with defaults to handle new fields, and pad any arrays
+        // that were saved back when there were fewer maps/towers.
         return {
             ...DEFAULT_PROGRESSION,
             ...loaded,
-            towerUnlocks: loaded.towerUnlocks || DEFAULT_PROGRESSION.towerUnlocks,
-            towerUpgradeLevels: loaded.towerUpgradeLevels || DEFAULT_PROGRESSION.towerUpgradeLevels,
-            mapWavesCompleted: loaded.mapWavesCompleted || DEFAULT_PROGRESSION.mapWavesCompleted,
-            mapHighestWaves: loaded.mapHighestWaves || DEFAULT_PROGRESSION.mapHighestWaves,
+            towerUnlocks: padArray(loaded.towerUnlocks, 15, false),
+            mapWavesCompleted: padArray(loaded.mapWavesCompleted, MAP_COUNT, 0),
+            mapHighestWaves: padArray(loaded.mapHighestWaves, MAP_COUNT, 0),
         };
     } catch {
         return { ...DEFAULT_PROGRESSION };
@@ -57,21 +94,6 @@ export function unlockTower(towerType) {
     const prog = getProgression();
     prog.towerUnlocks[towerType - 1] = true;
     saveProgression(prog);
-}
-
-export function getTowerUpgradeLevel(towerType) {
-    const prog = getProgression();
-    return prog.towerUpgradeLevels[towerType - 1] || 0;
-}
-
-export function upgradeTowerPermanently(towerType, maxLevel = 5) {
-    const prog = getProgression();
-    if (prog.towerUpgradeLevels[towerType - 1] < maxLevel) {
-        prog.towerUpgradeLevels[towerType - 1]++;
-        saveProgression(prog);
-        return true;
-    }
-    return false;
 }
 
 export function recordMapWaveCompletion(mapIndex, waveReached) {
