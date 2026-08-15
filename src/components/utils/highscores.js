@@ -1,14 +1,3 @@
-// Global high score leaderboard, backed by Supabase.
-//
-// Writes go through the submit-score Edge Function (see
-// supabase/functions/), not a direct table insert — the anon key has no
-// insert permission on `highscores` at all anymore. That function checks
-// the score/wave against a server-clock-anchored session before writing.
-//
-// Falls back to a local (per-device) list in localStorage if Supabase
-// isn't configured, or if a request fails (offline, etc.), so the game
-// never breaks over a network hiccup.
-
 import { supabase } from './supabaseClient';
 
 const SCORES_KEY = 'td_highscores';
@@ -16,38 +5,45 @@ const NAME_KEY = 'td_playerName';
 const MAX_SCORES = 10;
 
 export function getPlayerName() {
-    try {
-        return localStorage.getItem(NAME_KEY) || '';
-    } catch {
-        return '';
-    }
+    try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; }
 }
 
 export function setPlayerName(name) {
-    try {
-        localStorage.setItem(NAME_KEY, name);
-    } catch {
-        // localStorage unavailable (private browsing, etc.) - just skip persisting.
-    }
+    try { localStorage.setItem(NAME_KEY, name); } catch { /* storage unavailable */ }
 }
 
-// 'YYYY-MM' in UTC - must match the format the submit-score Edge
-// Function stamps onto each row (see supabase/functions/submit-score).
-function currentSeason() {
-    const now = new Date();
-    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+export function parseRunLabel(mapName = '') {
+    const parts = String(mapName).split('|').map(part => part.trim());
+    const parsed = { displayMap: parts[0] || mapName, difficulty: null, mode: null, ranked: false, daily: false };
+    parts.slice(1).forEach(part => {
+        if (part.startsWith('d:')) parsed.difficulty = part.slice(2);
+        else if (part.startsWith('m:')) parsed.mode = part.slice(2);
+        else if (part === 'ranked') parsed.ranked = true;
+        else if (part === 'daily') parsed.daily = true;
+    });
+    return parsed;
 }
 
-function getLocalHighScores(season = 'all', gameVersion = 'v2') {
+function matchesScope(entry, scope = {}) {
+    if (!scope || Object.keys(scope).length === 0) return true;
+    const parsed = parseRunLabel(entry.mapName);
+    if (scope.difficulty && scope.difficulty !== 'all' && parsed.difficulty !== scope.difficulty) return false;
+    if (scope.mode && scope.mode !== 'all' && parsed.mode !== scope.mode) return false;
+    if (scope.ranked === 'ranked' && !parsed.ranked) return false;
+    if (scope.ranked === 'unranked' && parsed.ranked) return false;
+    if (scope.daily === true && !parsed.daily) return false;
+    return true;
+}
+
+function getLocalHighScores(season = 'all', gameVersion = 'v2', scope = {}) {
     try {
-        const raw = localStorage.getItem(SCORES_KEY);
-        const all = raw ? JSON.parse(raw) : [];
-        const filtered = all.filter(s => (s.gameVersion || 'v2') === gameVersion);
-        if (season === 'all') return filtered;
-        return filtered.filter(s => (s.date || '').slice(0, 7) === season);
-    } catch {
-        return [];
-    }
+        const all = JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
+        return all
+            .filter(score => (score.gameVersion || 'v2') === gameVersion)
+            .filter(score => season === 'all' || (score.date || '').slice(0, 7) === season)
+            .filter(score => matchesScope(score, scope))
+            .sort((a, b) => b.score - a.score);
+    } catch { return []; }
 }
 
 function saveLocalHighScore(name, score, wave, mapName, gameVersion = 'v2') {
@@ -55,50 +51,38 @@ function saveLocalHighScore(name, score, wave, mapName, gameVersion = 'v2') {
         const scores = JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
         scores.push({ name: name || 'Player', score, wave, mapName, gameVersion, date: new Date().toISOString() });
         scores.sort((a, b) => b.score - a.score);
-        const trimmed = scores.slice(0, MAX_SCORES * 20); // keep enough history to filter by season locally
+        const trimmed = scores.slice(0, MAX_SCORES * 40);
         localStorage.setItem(SCORES_KEY, JSON.stringify(trimmed));
         return trimmed;
-    } catch {
-        return getLocalHighScores();
-    }
+    } catch { return getLocalHighScores(); }
 }
 
-// Returns the top MAX_SCORES entries for one game's leaderboard.
-// `season` is either 'all' (the permanent all-time board) or a 'YYYY-MM'
-// string (defaults to the current month) for a resetting monthly
-// leaderboard. `gameVersion` is 'v2' (the original game) or 'v3' (Game
-// 3.0) - the two are always separate leaderboards, never merged. Shape
-// matches the old local-only version: { name, score, wave, mapName, date }.
-export async function getHighScores(season = 'all', gameVersion = 'v2') {
-    if (!supabase) {
-        return getLocalHighScores(season, gameVersion).slice(0, MAX_SCORES);
-    }
+// 3.1 encodes difficulty/mode/ranked metadata into map_name so the existing
+// Supabase schema and validation functions stay backward compatible. For a
+// scoped view we fetch a wider candidate set, filter client-side, then keep
+// the top ten. This avoids a database migration just to add leaderboard tabs.
+export async function getHighScores(season = 'all', gameVersion = 'v2', scope = {}) {
+    if (!supabase) return getLocalHighScores(season, gameVersion, scope).slice(0, MAX_SCORES);
 
+    const hasScope = gameVersion === 'v3' && scope && Object.values(scope).some(value => value && value !== 'all');
     let query = supabase
         .from('highscores')
         .select('name, score, wave, map_name, created_at, season, game_version')
         .eq('game_version', gameVersion)
         .order('score', { ascending: false })
-        .limit(MAX_SCORES);
-
-    if (season !== 'all') {
-        query = query.eq('season', season);
-    }
+        .limit(hasScope ? 100 : MAX_SCORES);
+    if (season !== 'all') query = query.eq('season', season);
 
     const { data, error } = await query;
-
     if (error) {
         console.error('[highscores] failed to load from Supabase, using local scores:', error.message);
-        return getLocalHighScores(season, gameVersion).slice(0, MAX_SCORES);
+        return getLocalHighScores(season, gameVersion, scope).slice(0, MAX_SCORES);
     }
 
-    return data.map(row => ({
-        name: row.name,
-        score: row.score,
-        wave: row.wave,
-        mapName: row.map_name,
-        date: row.created_at,
-    }));
+    return data
+        .map(row => ({ name: row.name, score: row.score, wave: row.wave, mapName: row.map_name, date: row.created_at }))
+        .filter(entry => matchesScope(entry, scope))
+        .slice(0, MAX_SCORES);
 }
 
 export function getCurrentSeasonLabel() {
@@ -106,46 +90,26 @@ export function getCurrentSeasonLabel() {
     return now.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-// Call once when a round starts. Anchors a server-side clock for the
-// plausibility check in saveHighScore. Returns a sessionId (or null if
-// Supabase isn't configured / the request fails - saveHighScore handles
-// that by just keeping the score local-only).
 export async function startGameSession(mapName, gameVersion = 'v2') {
     if (!supabase) return null;
-
     try {
-        const { data, error } = await supabase.functions.invoke('start-session', {
-            body: { mapName, gameVersion },
-        });
-        if (error) {
-            console.error('[highscores] could not start a session:', error.message);
-            return null;
-        }
+        const { data, error } = await supabase.functions.invoke('start-session', { body: { mapName, gameVersion } });
+        if (error) { console.error('[highscores] could not start a session:', error.message); return null; }
         return data?.sessionId ?? null;
-    } catch (err) {
-        console.error('[highscores] could not start a session:', err);
+    } catch (error) {
+        console.error('[highscores] could not start a session:', error);
         return null;
     }
 }
 
-// Saves a score. Always mirrors to localStorage as the player's own local
-// record. Only reaches the shared leaderboard if the server accepts it as
-// plausible for the given session.
 export async function saveHighScore(sessionId, name, score, wave, mapName, gameVersion = 'v2') {
     const playerName = name || 'Player';
     saveLocalHighScore(playerName, score, wave, mapName, gameVersion);
-
-    if (!supabase || !sessionId) {
-        return getHighScores('all', gameVersion);
-    }
+    if (!supabase || !sessionId) return getHighScores('all', gameVersion);
 
     const { error } = await supabase.functions.invoke('submit-score', {
         body: { sessionId, name: playerName, score, wave, mapName, gameVersion },
     });
-
-    if (error) {
-        console.error('[highscores] score was not accepted onto the shared leaderboard:', error.message);
-    }
-
+    if (error) console.error('[highscores] score was not accepted onto the shared leaderboard:', error.message);
     return getHighScores('all', gameVersion);
 }
