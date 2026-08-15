@@ -1,25 +1,17 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
-  "icons": [
-    {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    },
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
-  ],
-  "start_url": ".",
+  "short_name": "Tower Defense",
+  "name": "Tower Defense 3.0",
+  "description": "Offline-capable tower defense with maps, progression, upgrades and challenge modes.",
+  "id": "/",
+  "start_url": "/play3",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "landscape",
+  "theme_color": "#111827",
+  "background_color": "#111827",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" },
+    { "src": "/logo192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "/logo512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+  ]
 }
