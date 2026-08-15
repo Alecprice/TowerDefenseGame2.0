@@ -87,6 +87,7 @@ export function buildWavePlan({ wave, map, mapIndex = 0, difficulty, modeKey = '
         if (cost > threatBudget + 1.3 && entries.length > 3) type = 1;
         let trait = traitFor(wave, difficulty, modeKey, rng);
         if (rules.alternatingTraits && wave >= 2) trait = wave % 2 === 0 ? 'hasted' : 'fortified';
+        if (rules.forcedTrait && wave >= (rules.forcedTraitFromWave || 1)) trait = rules.forcedTrait;
         entries.push({ type, trait, elite: Boolean(trait) });
         threatBudget -= ENEMY_COST[type] || 1;
     }
