@@ -10,20 +10,21 @@ import buyTowerSrc from '../assets/audioClips/buy_tower.wav';
 import unlockTowerSrc from '../assets/audioClips/unlock_tower.wav';
 import upgradeTowerSrc from '../assets/audioClips/upgrade_tower.wav';
 import uiClickSrc from '../assets/audioClips/ui_click.wav';
+import { playModeBossCue, playModeClearCue } from './proceduralModeSfxV32';
 
 // Howler pools/overlaps plays automatically per Howl instance, so rapid
 // tower fire or simultaneous enemy deaths won't cut each other off.
 const fireSounds = {
-    1: new Howl({ src: [fireStrikerSrc] }),  // Striker
-    2: new Howl({ src: [fireStrikerSrc] }),  // Sniper (reuses Striker - both direct-hit)
-    3: new Howl({ src: [fireBlasterSrc] }),  // Blaster
-    4: new Howl({ src: [fireBurnerSrc] }),   // Burner
-    5: new Howl({ src: [fireBlasterSrc] }),  // Cannon (splash, closest to Blaster's AOE feel)
-    6: new Howl({ src: [fireSlowerSrc] }),   // Toxin Spire (DOT, reuses the "debuff" cue)
-    7: new Howl({ src: [fireSlowerSrc] }),   // Frost Tower
-    8: new Howl({ src: [buyTowerSrc], volume: 0.3 }), // Bank (no fire sound - subtle coin cue instead, quiet since it plays constantly)
-    9: new Howl({ src: [fireStrikerSrc] }),  // Bulwark
-    10: new Howl({ src: [uiClickSrc], volume: 0 }), // Beacon never actually fires, kept for safety
+    1: new Howl({ src: [fireStrikerSrc] }),
+    2: new Howl({ src: [fireStrikerSrc] }),
+    3: new Howl({ src: [fireBlasterSrc] }),
+    4: new Howl({ src: [fireBurnerSrc] }),
+    5: new Howl({ src: [fireBlasterSrc] }),
+    6: new Howl({ src: [fireSlowerSrc] }),
+    7: new Howl({ src: [fireSlowerSrc] }),
+    8: new Howl({ src: [buyTowerSrc], volume: 0.3 }),
+    9: new Howl({ src: [fireStrikerSrc] }),
+    10: new Howl({ src: [uiClickSrc], volume: 0 }),
 };
 const enemyDeathSound = new Howl({ src: [enemyDeathSrc] });
 const bossDeathSound = new Howl({ src: [bossDeathSrc] });
@@ -32,16 +33,10 @@ const unlockTowerSound = new Howl({ src: [unlockTowerSrc] });
 const upgradeTowerSound = new Howl({ src: [upgradeTowerSrc] });
 const uiClickSound = new Howl({ src: [uiClickSrc], volume: 0.6 });
 
-// These three reuse existing clips at a different pitch/volume rather
-// than needing new audio files - a higher-pitched ui_click reads as a
-// sharp "clink" for a blocked hit, a fast-and-quiet enemy_death reads as
-// a "pop" for a splitter breaking apart, and a slowed-down unlock_tower
-// reads as a small fanfare for clearing a wave.
 const shieldBlockSound = new Howl({ src: [uiClickSrc], volume: 0.5, rate: 1.8 });
 const splitterPopSound = new Howl({ src: [enemyDeathSrc], volume: 0.4, rate: 1.6 });
 const waveClearedSound = new Howl({ src: [unlockTowerSrc], volume: 0.5, rate: 0.85 });
 
-// Simple global mute the pause/settings menu can toggle. Defaults to on.
 let sfxEnabled = true;
 export function setSfxEnabled(enabled) {
     sfxEnabled = enabled;
@@ -59,6 +54,7 @@ export function playTowerFire(type) {
 export function playEnemyDeath(isBoss) {
     if (!sfxEnabled) return;
     (isBoss ? bossDeathSound : enemyDeathSound).play();
+    if (isBoss) playModeBossCue();
 }
 
 export function playBuyTower() {
@@ -94,4 +90,5 @@ export function playSplitterPop() {
 export function playWaveCleared() {
     if (!sfxEnabled) return;
     waveClearedSound.play();
+    playModeClearCue();
 }
