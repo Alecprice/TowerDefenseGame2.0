@@ -13,23 +13,23 @@ export const GAME_MODES = {
     noeconomy: mode('noeconomy', 'No Economy', 'Economy towers are disabled; kills drip-feed upgrade Crystals.', { economyDisabled:true, killCrystalEvery:3 }),
     roguelite: mode('roguelite', 'Roguelite', 'Every 5 cleared waves, choose a permanent upgrade for that run.', { roguelite:true }),
 
-    swarm: mode('swarm', 'Swarm Front', 'Large fast swarms with lower individual health and tighter spawn spacing.', { enemyHp:.62, enemySpeed:1.18, enemyReward:.72, threatMult:1.55, spawnInterval:.32, maxUnitsMult:1.65 }),
-    glasscannon: mode('glasscannon', 'Glass Cannon', 'Your towers hit much harder, but enemy leaks are devastating and you start with fewer lives.', { startLives:5, towerDmgMult:1.55, towerFireMult:1.10, enemyHp:1.10, enemyAttack:2.25, enemyReward:1.18 }),
-    blackout: mode('blackout', 'Blackout', 'Permanent battlefield darkness cuts tower range while elites become more common.', { rangeMult:.68, traitMult:1.35, enemyReward:1.2 }),
-    goldrush: mode('goldrush', 'Gold Rush', 'Big starting economy and doubled passive income against tougher, more expensive waves.', { startMoneyMult:1.8, incomeMult:2, towerCostMult:1.15, enemyHp:1.35, enemyReward:1.2, threatMult:1.12 }),
-    speedrun: mode('speedrun', 'Speedrun', 'Almost no downtime, rapid spawns, faster enemies and bonus rewards.', { enemySpeed:1.22, enemyReward:1.25, threatMult:1.2, spawnInterval:.25, intermission:.15 }),
-    marathon: mode('marathon', 'Marathon', 'Very large endurance waves with bosses spaced farther apart.', { enemyHp:1.10, threatMult:1.5, maxUnitsMult:1.5, spawnInterval:.60, bossInterval:10, enemyReward:1.15 }),
-    fortress: mode('fortress', 'Fortress Doctrine', 'Towers gain range and damage, but enemies are heavily armored and durable.', { towerDmgMult:1.25, rangeMult:1.20, enemyHp:1.5, enemySpeed:.80, enemyReward:1.30, armorBonus:6, threatMult:.92 }),
-    scavenger: mode('scavenger', 'Scavenger', 'No passive economy: every kill matters, with direct salvage bonuses replacing banks.', { economyDisabled:true, startMoneyMult:.75, enemyReward:.72, killMoneyBonus:4, killCrystalEvery:5, threatMult:1.08 }),
+    swarm: mode('swarm', 'Swarm Front', 'Huge fast swarms with low individual health and extremely tight spawn spacing.', { enemyHp:.62, enemySpeed:1.18, enemyReward:.72, threatMult:1.55, spawnInterval:.32, maxUnitsMult:1.65 }),
+    glasscannon: mode('glasscannon', 'Glass Cannon', 'Your towers hit and cycle much harder, while enemy attacks become devastating.', { towerDmgMult:1.55, towerFireMult:1.18, enemyHp:1.10, enemyAttack:2.25, enemyReward:1.18 }),
+    blackout: mode('blackout', 'Blackout', 'Tower range is heavily reduced and elite pressure rises.', { rangeMult:.68, traitMult:1.35, enemyReward:1.20 }),
+    bounty: mode('bounty', 'Bounty Hunt', 'Enemies are tougher and waves are denser, but every kill pays a major bounty.', { enemyHp:1.35, enemyReward:1.75, threatMult:1.18, spawnInterval:.64 }),
+    speedrun: mode('speedrun', 'Speedrun', 'Rapid spawns, faster enemies and bonus rewards create short high-pressure waves.', { enemySpeed:1.22, enemyReward:1.25, threatMult:1.2, spawnInterval:.25 }),
+    marathon: mode('marathon', 'Marathon', 'Oversized endurance waves with bosses appearing only every ten waves.', { enemyHp:1.10, threatMult:1.5, maxUnitsMult:1.5, spawnInterval:.60, bossInterval:10, enemyReward:1.15 }),
+    fortress: mode('fortress', 'Fortress Doctrine', 'Towers gain damage and range, but the enemy army is slow, armored and extremely durable.', { towerDmgMult:1.25, rangeMult:1.20, enemyHp:1.5, enemySpeed:.80, enemyReward:1.30, armorBonus:6, threatMult:.92 }),
+    plague: mode('plague', 'Regenerator Plague', 'Most later enemies regenerate health, demanding sustained damage and focus fire.', { enemyHp:1.12, enemyReward:1.28, forcedTrait:'regenerating', forcedTraitFromWave:6, threatMult:1.12 }),
     mirror: mode('mirror', 'Mirror War', 'Odd waves become fortified; even waves become hasted, forcing alternating defenses.', { alternatingTraits:true, enemyReward:1.15, threatMult:1.10 }),
-    apocalypse: mode('apocalypse', 'Apocalypse', 'Five lives, frequent elites, bosses every four waves and brutal enemy damage.', { startLives:5, enemyHp:1.25, enemyAttack:1.5, enemyReward:1.35, traitMult:2.8, threatMult:1.35, bossInterval:4, spawnInterval:.55 }),
-    precision: mode('precision', 'Precision Protocol', 'Only eight towers may be placed; each tower is stronger, so placement quality is everything.', { maxTowers:8, towerDmgMult:1.30, towerFireMult:1.15, enemyHp:1.25, enemyReward:1.25, threatMult:1.12 }),
-    inflation: mode('inflation', 'Inflation', 'Towers and upgrades cost more, but kills and passive income pay more too.', { towerCostMult:1.25, upgradeCostMult:1.25, incomeMult:1.25, enemyReward:1.40, threatMult:1.15 }),
+    apocalypse: mode('apocalypse', 'Apocalypse', 'Frequent elites, bosses every four waves and brutally strong enemy attacks.', { enemyHp:1.25, enemyAttack:1.5, enemyReward:1.35, traitMult:2.8, threatMult:1.35, bossInterval:4, spawnInterval:.55 }),
+    precision: mode('precision', 'Precision Protocol', 'Tower damage, range and fire rate rise sharply, but every enemy is significantly tougher.', { towerDmgMult:1.30, towerFireMult:1.15, rangeMult:1.18, enemyHp:1.45, enemyReward:1.30, threatMult:1.08 }),
+    splitterstorm: mode('splitterstorm', 'Splitter Storm', 'Later enemies split on death, turning every kill into a cleanup problem.', { enemyHp:.92, enemyReward:.90, forcedTrait:'splitter', forcedTraitFromWave:5, threatMult:1.28, spawnInterval:.58 }),
 };
 
 export const GAME_MODE_ORDER = [
     'classic','overdrive','titan','bossrush','chaos','draft','onelife','noeconomy','roguelite',
-    'swarm','glasscannon','blackout','goldrush','speedrun','marathon','fortress','scavenger','mirror','apocalypse','precision','inflation',
+    'swarm','glasscannon','blackout','bounty','speedrun','marathon','fortress','plague','mirror','apocalypse','precision','splitterstorm',
 ];
 
 function readInitialMode() {
