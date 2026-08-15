@@ -14,6 +14,8 @@ describe('Tower Defense 3.2 audio identities', () => {
         expect(new Set(signatures).size).toBe(100);
     });
 
+    // Even if a future edit accidentally makes two melodic profiles more
+    // similar, distinct tempos provide an independent audible no-repeat guard.
     it('gives all 100 maps distinct tempos as a second no-repeat guarantee', () => {
         const tempos = Array.from({ length: 100 }, (_, index) => buildMapAudioProfile(index).tempo);
         expect(new Set(tempos).size).toBe(100);
