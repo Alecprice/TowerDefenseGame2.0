@@ -1,31 +1,11 @@
 const MODE_KEY = 'td3_game_mode';
 
 export const GAME_MODES = {
-    classic: {
-        key: 'classic',
-        name: 'Classic Defense',
-        desc: 'The standard Game 3.0 ruleset.',
-    },
-    overdrive: {
-        key: 'overdrive',
-        name: 'Overdrive',
-        desc: 'Faster, more aggressive enemies with richer kill rewards.',
-    },
-    titan: {
-        key: 'titan',
-        name: 'Titan Siege',
-        desc: 'Slow armored enemies, frequent shields, and much larger health pools.',
-    },
-    bossrush: {
-        key: 'bossrush',
-        name: 'Boss Rush',
-        desc: 'Every fourth regular spawn becomes an elite mini-boss.',
-    },
-    chaos: {
-        key: 'chaos',
-        name: 'Chaos Protocol',
-        desc: 'Enemies roll a random dangerous trait when they enter the map.',
-    },
+    classic: { key: 'classic', name: 'Classic Defense', desc: 'The standard Game 3.0 ruleset.' },
+    overdrive: { key: 'overdrive', name: 'Overdrive', desc: 'Faster, more aggressive enemies with richer kill rewards.' },
+    titan: { key: 'titan', name: 'Titan Siege', desc: 'Slow armored enemies, frequent shields, and much larger health pools.' },
+    bossrush: { key: 'bossrush', name: 'Boss Rush', desc: 'Every fourth regular spawn becomes an elite mini-boss.' },
+    chaos: { key: 'chaos', name: 'Chaos Protocol', desc: 'Enemies roll a random dangerous trait when they enter the map.' },
 };
 
 export const GAME_MODE_ORDER = ['classic', 'overdrive', 'titan', 'bossrush', 'chaos'];
@@ -40,6 +20,7 @@ function readInitialMode() {
 }
 
 let currentModeKey = readInitialMode();
+let enabled = typeof window !== 'undefined' && window.location.pathname.includes('game3');
 let enemySequence = 0;
 
 export function getGameMode(key = currentModeKey) {
@@ -50,14 +31,15 @@ export function getCurrentGameMode() {
     return getGameMode(currentModeKey);
 }
 
+export function setGameModeEnabled(value) {
+    enabled = Boolean(value);
+    enemySequence = 0;
+}
+
 export function setGameMode(key) {
     currentModeKey = GAME_MODES[key] ? key : 'classic';
     enemySequence = 0;
-    try {
-        localStorage.setItem(MODE_KEY, currentModeKey);
-    } catch {
-        // localStorage unavailable; the in-memory selection still works.
-    }
+    try { localStorage.setItem(MODE_KEY, currentModeKey); } catch { /* localStorage unavailable */ }
     return getCurrentGameMode();
 }
 
@@ -71,6 +53,7 @@ function scaleEnemy(enemy, { hp = 1, speed = 1, attack = 1, reward = 1 }) {
 }
 
 export function applyGameModeToEnemy(enemy) {
+    if (!enabled) return;
     const mode = getCurrentGameMode();
     enemy.modeKey = mode.key;
     enemySequence += 1;
@@ -80,19 +63,15 @@ export function applyGameModeToEnemy(enemy) {
         enemy.modeTrait = 'Overdrive';
         return;
     }
-
     if (mode.key === 'titan') {
         scaleEnemy(enemy, { hp: 1.5, speed: 0.82, attack: 1.3, reward: 1.4 });
         enemy.armor = (enemy.armor || 0) + 3;
         if (enemySequence % 3 === 0 && enemy.type !== 5) {
             enemy.shieldHP = Math.round(enemy.maxHealth * 0.28);
             enemy.modeTrait = 'Titan Shield';
-        } else {
-            enemy.modeTrait = 'Titan Armor';
-        }
+        } else enemy.modeTrait = 'Titan Armor';
         return;
     }
-
     if (mode.key === 'bossrush') {
         scaleEnemy(enemy, { hp: 1.08, speed: 1.04, attack: 1.08, reward: 1.15 });
         if (enemy.type !== 5 && enemySequence % 4 === 0) {
@@ -104,7 +83,6 @@ export function applyGameModeToEnemy(enemy) {
         }
         return;
     }
-
     if (mode.key === 'chaos') {
         scaleEnemy(enemy, { hp: 1.05, speed: 1.03, attack: 1.05, reward: 1.18 });
         if (enemy.type === 5) return;
