@@ -27,8 +27,9 @@ export function buildMapAudioProfile(mapIndex) {
     const scaleName = MAP_SCALE_NAMES[(index * 5 + 1) % MAP_SCALE_NAMES.length];
 
     // The first three melody degrees are a base-7 encoding of the map index.
-    // That makes map 0..99 provably different even if tempo/root/wave happen
-    // to overlap. The remaining notes turn that identity into a musical motif.
+    // That makes map 0..99 provably different even if root/wave overlap. The
+    // tempo is also unique across all 100 maps (84.00..138.45 BPM), giving
+    // every map a second independent audible identity dimension.
     const motif = [
         a, b, c,
         (a + c + 2) % 7,
@@ -41,7 +42,7 @@ export function buildMapAudioProfile(mapIndex) {
     return {
         mapIndex: index,
         rootMidi: 43 + ((index * 11) % 17),
-        tempo: 92 + ((index * 13) % 49),
+        tempo: Number((84 + index * 0.55).toFixed(2)),
         scaleName,
         scale: AUDIO_SCALES[scaleName],
         wave: MAP_WAVES[(index * 3 + 1) % MAP_WAVES.length],
