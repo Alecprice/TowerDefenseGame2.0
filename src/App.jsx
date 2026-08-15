@@ -4,6 +4,7 @@ import Container from '@mui/material/Container';
 import ScrollToTop from './components/utils/ScrollToTop';
 import GameErrorBoundary from './components/objects/GameErrorBoundary';
 import OfflineStatus from './components/objects/OfflineStatus';
+import './components/utils/contentExpansionRuntime';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 const HomePage = lazy(() => import('./components/pages/HomePage'));
