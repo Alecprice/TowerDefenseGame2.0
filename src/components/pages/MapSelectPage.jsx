@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Button from 'react-bootstrap/Button';
 import { maps } from '../data/maps';
+import { TOWER_TYPES_V3 } from '../objects/towerDefsV3';
 import { playUiClick } from '../utils/sfx';
 import { isMapUnlocked, getMapWavesCompleted } from '../utils/progression';
 import { isMapUnlockedV3, getMapWavesCompletedV3 } from '../utils/progressionV3';
@@ -11,14 +12,16 @@ const MapSelectPage = ({ mode = 'v2' }) => {
     const isUnlockedFn = mode === 'v3' ? isMapUnlockedV3 : isMapUnlocked;
     const wavesCompletedFn = mode === 'v3' ? getMapWavesCompletedV3 : getMapWavesCompleted;
     const modeSuffix = mode === 'v3' ? '&mode=v3' : '';
+    const mapCount = maps.length;
+    const v3TowerCount = TOWER_TYPES_V3.length;
 
     return (
     <div>
         <h1>Choose a Map - {mode === 'v3' ? 'Tower Defense 3.0' : 'Tower Defense 2.0'}</h1>
         <p className="map-select-subtitle">
             {mode === 'v3'
-                ? `${maps.length} maps · 28 towers · 5 game modes · Money to build, Crystals to upgrade`
-                : `${maps.length} maps · 15 towers · single currency`}
+                ? `${mapCount} maps · ${v3TowerCount} towers · 5 game modes · Money to build, Crystals to upgrade`
+                : `${mapCount} maps · 15 towers · single currency`}
         </p>
         <div className="map-select-grid">
             {maps.map((map, index) => {
