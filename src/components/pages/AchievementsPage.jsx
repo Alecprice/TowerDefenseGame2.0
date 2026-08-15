@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from 'react-bootstrap/Button';
 import { ACHIEVEMENTS, getUnlockedIds } from '../utils/achievements';
+import { isAdminTestMode } from '../utils/adminTestMode';
 import { exportProgress, importProgress } from '../utils/progressBackup';
 import { playUiClick } from '../utils/sfx';
 import './AchievementsPage.css';
@@ -9,7 +10,8 @@ import './AchievementsPage.css';
 const PAGE_SIZE = 60;
 
 const AchievementsPage = () => {
-    const unlockedIds = getUnlockedIds();
+    const adminQA = isAdminTestMode();
+    const unlockedIds = adminQA ? ACHIEVEMENTS.map(a => a.id) : getUnlockedIds();
     const unlockedSet = useMemo(() => new Set(unlockedIds), [unlockedIds]);
     const fileInputRef = useRef(null);
     const [backupMessage, setBackupMessage] = useState('');
@@ -52,30 +54,19 @@ const AchievementsPage = () => {
     return (
         <div>
             <h1>Achievements</h1>
-            <p className="scores-note">{unlockedIds.length} / {ACHIEVEMENTS.length} unlocked</p>
+            <p className="scores-note">{unlockedIds.length} / {ACHIEVEMENTS.length} unlocked{adminQA ? ' · QA preview (not saved)' : ''}</p>
 
             <div className="achievement-browser-controls">
-                <input
-                    value={search}
-                    onChange={e => updateFilter(setSearch)(e.target.value)}
-                    placeholder="Search 550 achievements..."
-                    aria-label="Search achievements"
-                />
+                <input value={search} onChange={e => updateFilter(setSearch)(e.target.value)} placeholder="Search 550 achievements..." aria-label="Search achievements" />
                 <select value={category} onChange={e => updateFilter(setCategory)(e.target.value)} aria-label="Achievement category">
-                    <option value="all">All categories</option>
-                    <option value="global">Global</option>
-                    <option value="map">Map-specific</option>
+                    <option value="all">All categories</option><option value="global">Global</option><option value="map">Map-specific</option>
                 </select>
                 <select value={status} onChange={e => updateFilter(setStatus)(e.target.value)} aria-label="Achievement status">
-                    <option value="all">Locked + unlocked</option>
-                    <option value="unlocked">Unlocked only</option>
-                    <option value="locked">Locked only</option>
+                    <option value="all">Locked + unlocked</option><option value="unlocked">Unlocked only</option><option value="locked">Locked only</option>
                 </select>
             </div>
 
-            <div className="achievement-page-meta">
-                Showing {visible.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}-{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
-            </div>
+            <div className="achievement-page-meta">Showing {visible.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}-{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}</div>
 
             <div className="achievements-grid">
                 {visible.map(a => {
