@@ -7,14 +7,6 @@ import { isMapUnlocked, getMapWavesCompleted } from '../utils/progression';
 import { isMapUnlockedV3, getMapWavesCompletedV3 } from '../utils/progressionV3';
 import MapPreview from '../objects/MapPreview';
 
-// The map picker. Every map shows a small preview of its layout before you
-// commit to it, and locked maps are shown (greyed out, with progress
-// toward unlocking) instead of just being silently absent.
-//
-// mode='v3' switches this to Game 3.0's own (fully independent) unlock
-// progress and routes into /login?mode=v3 instead of the original flow -
-// see progressionV3.js and MENTAL_MODEL.md's note on why the two modes'
-// save data is never shared.
 const MapSelectPage = ({ mode = 'v2' }) => {
     const isUnlockedFn = mode === 'v3' ? isMapUnlockedV3 : isMapUnlocked;
     const wavesCompletedFn = mode === 'v3' ? getMapWavesCompletedV3 : getMapWavesCompleted;
@@ -25,8 +17,8 @@ const MapSelectPage = ({ mode = 'v2' }) => {
         <h1>Choose a Map - {mode === 'v3' ? 'Tower Defense 3.0' : 'Tower Defense 2.0'}</h1>
         <p className="map-select-subtitle">
             {mode === 'v3'
-                ? '22 towers · Money to build, Crystals to upgrade'
-                : '15 towers · single currency'}
+                ? `${maps.length} maps · 28 towers · 5 game modes · Money to build, Crystals to upgrade`
+                : `${maps.length} maps · 15 towers · single currency`}
         </p>
         <div className="map-select-grid">
             {maps.map((map, index) => {
