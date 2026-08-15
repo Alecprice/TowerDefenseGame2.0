@@ -11,7 +11,7 @@ const HomePage = lazy(() => import('./components/pages/HomePage'));
 const MapSelectPage = lazy(() => import('./components/pages/MapSelectPage'));
 const LoginPage = lazy(() => import('./components/pages/LoginPage'));
 const GamePage = lazy(() => import('./components/pages/GamePage'));
-const GamePageV31 = lazy(() => import('./components/pages/GamePageV31'));
+const GamePageV32 = lazy(() => import('./components/pages/GamePageV32'));
 const ScoresPage = lazy(() => import('./components/pages/ScoresPage'));
 const UpgradesPage = lazy(() => import('./components/pages/UpgradesPage'));
 const AchievementsPage = lazy(() => import('./components/pages/AchievementsPage'));
@@ -30,7 +30,7 @@ const App = () => (
                         <Route path="/play3" element={<MapSelectPage mode="v3" />} />
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/game" element={<GamePage />} />
-                        <Route path="/game3" element={<GamePageV31 />} />
+                        <Route path="/game3" element={<GamePageV32 />} />
                         <Route path="/scores" element={<ScoresPage />} />
                         <Route path="/upgrades" element={<UpgradesPage />} />
                         <Route path="/achievements" element={<AchievementsPage />} />
