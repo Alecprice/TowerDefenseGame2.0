@@ -14,6 +14,15 @@ describe('Tower Defense 3.2 audio identities', () => {
         expect(new Set(signatures).size).toBe(100);
     });
 
+    it('gives all 100 maps distinct tempos as a second no-repeat guarantee', () => {
+        const tempos = Array.from({ length: 100 }, (_, index) => buildMapAudioProfile(index).tempo);
+        expect(new Set(tempos).size).toBe(100);
+        tempos.forEach(tempo => {
+            expect(tempo).toBeGreaterThanOrEqual(84);
+            expect(tempo).toBeLessThan(140);
+        });
+    });
+
     it('keeps a map sound deterministic across sessions', () => {
         for (let index = 0; index < 100; index++) {
             expect(mapAudioSignature(buildMapAudioProfile(index)))
