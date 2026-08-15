@@ -49,12 +49,12 @@ function currentMapContext() {
     const params = new URLSearchParams(window.location.search);
     const index = Math.max(0, Math.min(maps.length - 1, Number.parseInt(params.get('map'), 10) || 0));
     const map = maps[index];
-    return { index, map, mechanic: map ? getMapMechanic(index, map) : null };
+    return { map, mechanic: map ? getMapMechanic(index, map) : null };
 }
 
 function placementAt(event, towerType) {
     const board = document.querySelector('.v31-board-wrap canvas');
-    if (!board || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return null;
+    if (!board || !board.isConnected || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return null;
     const rect = board.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return null;
     const inside = event.clientX >= rect.left && event.clientX <= rect.right
@@ -71,7 +71,7 @@ function placementAt(event, towerType) {
     const logicalRange = def?.global ? 0 : def?.category === CATEGORY.SUPPORT ? (level?.auraRange || 0) : (level?.range || 0);
     const rangePx = logicalRange * rect.width / 900;
     return {
-        board, rect, valid, cellX, cellY, cellW, cellH, rangePx,
+        board, valid, cellX, cellY, cellW, cellH, rangePx,
         left: rect.left + cellX * cellW,
         top: rect.top + cellY * cellH,
         centerX: rect.left + (cellX + .5) * cellW,
@@ -79,13 +79,10 @@ function placementAt(event, towerType) {
     };
 }
 
-function dispatchBoardPointer(board, type, sourceEvent) {
-    if (!board || !board.isConnected) return false;
+function dispatchBoardDrop(board, sourceEvent) {
+    if (!board?.isConnected) return false;
     try {
-        // Avoid constructing PointerEvent on mobile Safari after rotation.
-        // A plain Event with stable coordinate properties is enough for the
-        // board's existing pointer handler and avoids WebKit's fragile path.
-        const synthetic = new Event(type, { bubbles: true, cancelable: true });
+        const synthetic = new Event('pointerdown', { bubbles: true, cancelable: true });
         Object.defineProperties(synthetic, {
             clientX: { value: sourceEvent.clientX },
             clientY: { value: sourceEvent.clientY },
@@ -109,6 +106,14 @@ function makeGhost(towerType) {
     ghost.innerHTML = `<strong>${name}</strong>${price != null ? `<small>$${price}</small>` : ''}`;
     document.body.appendChild(ghost);
     return ghost;
+}
+
+function clearDrag(dragRef, setPlacement) {
+    const drag = dragRef.current;
+    if (drag) clearTimeout(drag.longPress);
+    drag?.ghost?.remove();
+    dragRef.current = null;
+    setPlacement(null);
 }
 
 const Toggle = ({ checked, onChange, label, hint }) => (
@@ -153,14 +158,6 @@ const CrossDevicePolish = () => {
         tipTimerRef.current = setTimeout(() => setTip(''), 1800);
     };
 
-    const cancelDrag = () => {
-        const drag = dragRef.current;
-        if (drag) clearTimeout(drag.longPress);
-        drag?.ghost?.remove();
-        dragRef.current = null;
-        setPlacement(null);
-    };
-
     const finishTutorial = () => {
         try { localStorage.setItem(TUTORIAL_KEY, 'done'); } catch { /* unavailable */ }
         setTutorialStep(0);
@@ -183,26 +180,26 @@ const CrossDevicePolish = () => {
         const onOnline = () => setOnline(true);
         const onOffline = () => setOnline(false);
         const onInstall = event => { event.preventDefault(); setInstallPrompt(event); };
-        const onRotationStart = () => cancelDrag();
-        const onViewportSettled = () => {
-            cancelDrag();
+        const resetTransientInput = () => {
+            clearDrag(dragRef, setPlacement);
             setDevice(deviceLabel());
         };
         window.addEventListener('resize', resize);
         window.addEventListener('online', onOnline);
         window.addEventListener('offline', onOffline);
         window.addEventListener('beforeinstallprompt', onInstall);
-        window.addEventListener('td3:rotation-start', onRotationStart);
-        window.addEventListener('td3:viewport-settled', onViewportSettled);
+        window.addEventListener('td3:rotation-start', resetTransientInput);
+        window.addEventListener('td3:viewport-settled', resetTransientInput);
         return () => {
             window.removeEventListener('resize', resize);
             window.removeEventListener('online', onOnline);
             window.removeEventListener('offline', onOffline);
             window.removeEventListener('beforeinstallprompt', onInstall);
-            window.removeEventListener('td3:rotation-start', onRotationStart);
-            window.removeEventListener('td3:viewport-settled', onViewportSettled);
+            window.removeEventListener('td3:rotation-start', resetTransientInput);
+            window.removeEventListener('td3:viewport-settled', resetTransientInput);
+            clearDrag(dragRef, setPlacement);
         };
-    });
+    }, []);
 
     useEffect(() => {
         let raf = 0;
@@ -233,8 +230,7 @@ const CrossDevicePolish = () => {
 
     useEffect(() => {
         const pauseOnHidden = () => {
-            if (!document.hidden) return;
-            buttonByText('Pause')?.click();
+            if (document.hidden) buttonByText('Pause')?.click();
         };
         document.addEventListener('visibilitychange', pauseOnHidden);
         return () => document.removeEventListener('visibilitychange', pauseOnHidden);
@@ -285,7 +281,7 @@ const CrossDevicePolish = () => {
             } else if (event.key === 'Escape') {
                 document.querySelector('.v31-tower-card.selected .v31-tower-select')?.click();
                 setSettingsOpen(false);
-                cancelDrag();
+                clearDrag(dragRef, setPlacement);
             }
         };
         window.addEventListener('keydown', onKeyDown);
@@ -301,7 +297,7 @@ const CrossDevicePolish = () => {
             if (!select || select.disabled || card.classList.contains('poor')) return;
             const towerType = towerTypeFromCard(card);
             if (!towerType) return;
-            cancelDrag();
+            clearDrag(dragRef, setPlacement);
             const longPress = window.setTimeout(() => {
                 if (!dragRef.current || dragRef.current.moved) return;
                 showTip(select.innerText.replace(/\n+/g, ' · '));
@@ -317,8 +313,7 @@ const CrossDevicePolish = () => {
         const onPointerMove = event => {
             const drag = dragRef.current;
             if (!drag || event.pointerId !== drag.pointerId || document.documentElement.classList.contains('td3-rotating')) return;
-            const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
-            if (!drag.moved && distance < DRAG_THRESHOLD) return;
+            if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < DRAG_THRESHOLD) return;
             drag.moved = true;
             clearTimeout(drag.longPress);
             if (!drag.selectedForDrag) {
@@ -339,7 +334,6 @@ const CrossDevicePolish = () => {
                 drag.ghost.classList.toggle('over-board', Boolean(preview));
                 drag.ghost.classList.toggle('invalid-drop', Boolean(preview && !preview.valid));
             }
-            if (preview?.board) dispatchBoardPointer(preview.board, 'pointermove', event);
             event.preventDefault();
         };
 
@@ -352,7 +346,7 @@ const CrossDevicePolish = () => {
                 if (preview?.valid && preview.board) {
                     requestAnimationFrame(() => {
                         if (!document.documentElement.classList.contains('td3-rotating')) {
-                            dispatchBoardPointer(preview.board, 'pointerdown', event);
+                            dispatchBoardDrop(preview.board, event);
                             if (settings.haptics) navigator.vibrate?.(18);
                         }
                     });
@@ -363,7 +357,7 @@ const CrossDevicePolish = () => {
                 event.preventDefault();
                 event.stopPropagation();
             }
-            cancelDrag();
+            clearDrag(dragRef, setPlacement);
         };
 
         document.addEventListener('pointerdown', onPointerDown, true);
@@ -375,7 +369,7 @@ const CrossDevicePolish = () => {
             document.removeEventListener('pointermove', onPointerMove, true);
             document.removeEventListener('pointerup', finishDrag, true);
             document.removeEventListener('pointercancel', finishDrag, true);
-            cancelDrag();
+            clearDrag(dragRef, setPlacement);
         };
     }, [settings.haptics]);
 
@@ -419,7 +413,7 @@ const CrossDevicePolish = () => {
                 <div className="td3-tutorial-card" role="dialog" aria-label="Quick tutorial">
                     <div className="td3-tutorial-progress">{tutorialStep} / 3</div>
                     {tutorialStep === 1 && <><h3>1. Place a tower</h3><p>Drag a tower from the tray onto a green build tile, or tap a tower and then tap the board.</p></>}
-                    {tutorialStep === 2 && <><h3>2. Run the defense</h3><p>Press Play. Rotation resumes automatically if the game was already running.</p></>}
+                    {tutorialStep === 2 && <><h3>2. Run the defense</h3><p>Press Play. If you rotate while playing, the defense resumes automatically after the layout settles.</p></>}
                     {tutorialStep === 3 && <><h3>3. Upgrade & target</h3><p>Tap a placed tower to upgrade or sell it. Open Settings to choose First, Last, Strong, Weak, or Closest targeting.</p></>}
                     <div><button onClick={finishTutorial}>Skip</button><button className="primary" onClick={() => tutorialStep >= 3 ? finishTutorial() : setTutorialStep(step => step + 1)}>{tutorialStep >= 3 ? 'Play' : 'Next'}</button></div>
                 </div>
