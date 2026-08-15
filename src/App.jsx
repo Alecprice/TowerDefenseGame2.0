@@ -2,13 +2,11 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Container from '@mui/material/Container';
 import ScrollToTop from './components/utils/ScrollToTop';
+import GameErrorBoundary from './components/objects/GameErrorBoundary';
+import OfflineStatus from './components/objects/OfflineStatus';
+import './components/utils/contentExpansionRuntime';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-// Code-split by route: each page becomes its own chunk, loaded on demand
-// instead of all being bundled into one large index.js. GamePage in
-// particular pulls in every tower/enemy/projectile/audio module, so
-// splitting it out means someone just checking the leaderboard or their
-// achievements doesn't pay for that download.
 const HomePage = lazy(() => import('./components/pages/HomePage'));
 const MapSelectPage = lazy(() => import('./components/pages/MapSelectPage'));
 const LoginPage = lazy(() => import('./components/pages/LoginPage'));
@@ -20,8 +18,8 @@ const AchievementsPage = lazy(() => import('./components/pages/AchievementsPage'
 
 const RouteFallback = () => <div className="route-loading">Loading...</div>;
 
-const App = () => {
-    return (
+const App = () => (
+    <GameErrorBoundary>
         <Router>
             <ScrollToTop />
             <Container maxWidth="lg">
@@ -39,10 +37,9 @@ const App = () => {
                     </Routes>
                 </Suspense>
             </Container>
+            <OfflineStatus />
         </Router>
-
-
-    );
-}
+    </GameErrorBoundary>
+);
 
 export default App;

@@ -1,65 +1,56 @@
-// Difficulty tiers. Easy is the game's existing, unmodified balance -
-// every multiplier here is relative to that baseline, not to some other
-// notion of "default."
-//
-// `mult` is applied to enemy HP (folded into the existing per-wave
-// waveScale in GamePage.jsx, alongside each map's own healthMult), to
-// enemy attack damage (Enemy() in enemy.js), and to each map's
-// armored/tank spawn chances (capped at 90% so a wave can never become
-// guaranteed-all-armored). Enemy speed and the wave/spawn cadence itself
-// are left alone - the extra challenge is "enemies hit harder and take
-// more hits," not "the game runs faster at you."
-//
-// `startMoneyMult` and `refundMult` are the economy side of the same
-// idea: harder tiers also start you with less gold and give a worse
-// sell-back on towers, so the tiers feel different in how you're forced
-// to play (tighter early build order, more painful mistakes to walk
-// back), not only in how tough the enemies are.
+// Difficulty tiers are intentionally multi-dimensional: tougher enemies,
+// tighter starting economy and worse sell-back. GamePage/GamePageV3 already
+// consume these shared multipliers, so both rulesets stay in sync.
 export const DIFFICULTIES = {
     easy: {
         key: 'easy',
-        name: 'Easy',
-        mult: 1.0,
-        startMoneyMult: 1.0,
+        name: 'Casual',
+        mult: 0.90,
+        startMoneyMult: 1.15,
         refundMult: 1.0,
-        desc: 'The standard game, unmodified.',
+        eliteMult: 0.5,
+        desc: 'Relaxed mode: slightly weaker enemies and extra starting gold.',
     },
     basic: {
         key: 'basic',
-        name: 'Basic',
-        mult: 1.25,
-        startMoneyMult: 0.9,
+        name: 'Normal',
+        mult: 1.15,
+        startMoneyMult: 1.0,
         refundMult: 0.9,
-        desc: '25% harder than Easy.',
+        eliteMult: 1.0,
+        desc: 'The recommended balanced experience.',
     },
     normal: {
         key: 'normal',
-        name: 'Normal',
-        mult: 1.5,
-        startMoneyMult: 0.8,
-        refundMult: 0.8,
-        desc: '50% harder than Easy.',
+        name: 'Hard',
+        mult: 1.50,
+        startMoneyMult: 0.82,
+        refundMult: 0.78,
+        eliteMult: 1.35,
+        desc: 'Stronger enemies, tighter builds and more dangerous late waves.',
     },
     hard: {
         key: 'hard',
-        name: 'Hard',
-        mult: 1.75,
-        startMoneyMult: 0.7,
-        refundMult: 0.7,
-        desc: '75% harder than Easy.',
+        name: 'Nightmare',
+        mult: 1.90,
+        startMoneyMult: 0.68,
+        refundMult: 0.65,
+        eliteMult: 1.75,
+        desc: 'Veteran mode: punishing enemies and very little room for mistakes.',
     },
     challenge: {
         key: 'challenge',
-        name: 'Challenge Mode',
-        mult: 2.0,
-        startMoneyMult: 0.6,
-        refundMult: 0.6,
-        desc: '100% harder than Easy.',
+        name: 'Endless Challenge',
+        mult: 2.35,
+        startMoneyMult: 0.55,
+        refundMult: 0.55,
+        eliteMult: 2.2,
+        desc: 'Maximum scaling for leaderboard and survival runs.',
     },
 };
 
 export const DIFFICULTY_ORDER = ['easy', 'basic', 'normal', 'hard', 'challenge'];
 
 export function getDifficulty(key) {
-    return DIFFICULTIES[key] || DIFFICULTIES.easy;
+    return DIFFICULTIES[key] || DIFFICULTIES.basic;
 }

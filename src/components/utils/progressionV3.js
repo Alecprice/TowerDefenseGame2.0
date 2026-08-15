@@ -1,25 +1,10 @@
-// Progression for Game 3.0 - a deliberate near-mirror of progression.js,
-// kept as a fully separate file (separate localStorage keys, separate
-// unlock table sized for 22 towers instead of 15) rather than adding
-// mode-switching branches into the original. See MENTAL_MODEL.md's
-// "Four separate localStorage systems" section for why that pattern is
-// used throughout this codebase - this is a fifth, following the same
-// shape on purpose.
-//
-// Map unlock progress is intentionally its OWN track here too (not
-// shared with the original game's progression.js), even though both
-// modes draw from the same 50-map pool in maps.js - reaching wave 5 on
-// a map in Game 3.0 doesn't unlock anything in the original game and
-// vice versa, since the tower rosters (and therefore what "wave 5" even
-// means difficulty-wise) are different.
-
 const PROGRESSION_KEY = 'td3_progression';
 const TUTORIAL_KEY = 'td3_tutorial_shown';
-const MAP_COUNT = 50;
-const TOWER_COUNT = 22;
+const MAP_COUNT = 60;
+const TOWER_COUNT = 28;
 
 const DEFAULT_PROGRESSION = {
-    towerUnlocks: new Array(TOWER_COUNT).fill(false).map((_, i) => i === 0), // Vanguard (1) starts unlocked
+    towerUnlocks: new Array(TOWER_COUNT).fill(false).map((_, i) => i === 0),
     mapWavesCompleted: new Array(MAP_COUNT).fill(0),
     mapHighestWaves: new Array(MAP_COUNT).fill(0),
 };
@@ -30,32 +15,34 @@ function padArray(arr, length, fill) {
     return [...arr, ...new Array(length - arr.length).fill(fill)];
 }
 
-// Which global wave count (across any Game 3.0 map) unlocks each tower.
-// The 2 resource towers unlock early (the dual-currency economy doesn't
-// work at all without both), core attack towers next, specialists and
-// Farseer Spire/Blight Totem last.
 export const TOWER_UNLOCK_WAVE_V3 = {
-    21: 2,  // Gold Mine
-    7: 4,   // Cryo Spike
-    22: 5,  // Crystal Forge - the moment upgrades start mattering
-    4: 6,   // Rapid Vents
-    6: 8,   // Venom Lance
-    16: 10, // Beacon
-    3: 12,  // Cluster Charge
-    10: 14, // Armor Breaker
-    2: 16,  // Longshot
-    17: 18, // Sharpshooter Nest
-    5: 20,  // Mortar
-    18: 22, // Ammo Depot
-    8: 24,  // Executioner
-    9: 26,  // Chain Bolt
-    19: 28, // Overclock Rig
-    12: 30, // Rapid Pierce
-    14: 32, // Shield Breaker
-    11: 34, // Siege Cannon
-    13: 36, // Volatile Core
-    20: 38, // Blight Totem
-    15: 42, // Farseer Spire - last, and the strongest attacker
+    21: 2,
+    7: 4,
+    22: 5,
+    4: 6,
+    6: 8,
+    16: 10,
+    3: 12,
+    10: 14,
+    2: 16,
+    17: 18,
+    5: 20,
+    18: 22,
+    8: 24,
+    9: 26,
+    19: 28,
+    12: 30,
+    14: 32,
+    11: 34,
+    13: 36,
+    20: 38,
+    15: 42,
+    23: 44, // Reaper Battery
+    24: 47, // Arc Mortar
+    25: 50, // Corrosive Rail
+    26: 53, // Null Cannon
+    27: 56, // Storm Needle
+    28: 60, // Railstar
 };
 
 export function getProgressionV3() {
@@ -76,11 +63,7 @@ export function getProgressionV3() {
 }
 
 export function saveProgressionV3(progression) {
-    try {
-        localStorage.setItem(PROGRESSION_KEY, JSON.stringify(progression));
-    } catch {
-        // localStorage unavailable
-    }
+    try { localStorage.setItem(PROGRESSION_KEY, JSON.stringify(progression)); } catch { /* localStorage unavailable */ }
 }
 
 export function isTowerUnlockedV3(towerType) {
@@ -113,26 +96,16 @@ export function isMapUnlockedV3(mapIndex) {
 }
 
 export function tutorialHasBeenShownV3() {
-    try {
-        return localStorage.getItem(TUTORIAL_KEY) === 'true';
-    } catch {
-        return false;
-    }
+    try { return localStorage.getItem(TUTORIAL_KEY) === 'true'; } catch { return false; }
 }
 
 export function markTutorialAsShownV3() {
-    try {
-        localStorage.setItem(TUTORIAL_KEY, 'true');
-    } catch {
-        // localStorage unavailable
-    }
+    try { localStorage.setItem(TUTORIAL_KEY, 'true'); } catch { /* localStorage unavailable */ }
 }
 
 export function resetAllProgressV3() {
     try {
         localStorage.removeItem(PROGRESSION_KEY);
         localStorage.removeItem(TUTORIAL_KEY);
-    } catch {
-        // localStorage unavailable
-    }
+    } catch { /* localStorage unavailable */ }
 }
