@@ -1,6 +1,7 @@
 import { CATEGORY } from '../objects/towerCategory';
 import { recordDamage } from './runStats';
 import { spawnDamageNumber } from './damageNumbers';
+import { getGameModeRules } from './gameModes';
 
 const COLOR = {
     [CATEGORY.ATTACK]: '#ffffff',
@@ -12,7 +13,8 @@ const COLOR = {
 export function towerRangeV31(tower, globalRangeMult = 1) {
     if (tower.def?.global) return Infinity;
     const base = tower.effectiveRange ? tower.effectiveRange() : (tower.range || 0);
-    return base * (tower.mapRangeMult || 1) * globalRangeMult;
+    const modeRange = getGameModeRules().rangeMult || 1;
+    return base * (tower.mapRangeMult || 1) * globalRangeMult * modeRange;
 }
 
 function inRange(tower, enemy, range) {
@@ -32,7 +34,8 @@ function chooseTarget(tower, candidates) {
 
 function rawDamage(tower) {
     const base = tower.effectiveDmg ? tower.effectiveDmg() : (tower.dmg || 0);
-    return Math.max(0, base * (tower.mapDmgMult || 1));
+    const modeDmg = getGameModeRules().towerDmgMult || 1;
+    return Math.max(0, base * (tower.mapDmgMult || 1) * modeDmg);
 }
 
 function deal(tower, enemy, amount, color, wasCrit = false) {
@@ -56,10 +59,7 @@ function applyPrimary(tower, target, enemies, tracers) {
     } else {
         if (tower.shieldBonusMult && target.shieldHP > 0) power *= tower.shieldBonusMult;
         if (tower.heavyBonusMult && target.maxHealth >= (tower.heavyThreshold || 300)) power *= tower.heavyBonusMult;
-        if (tower.critChance && Math.random() < tower.critChance) {
-            power *= tower.critMult || 2;
-            crit = true;
-        }
+        if (tower.critChance && Math.random() < tower.critChance) { power *= tower.critMult || 2; crit = true; }
     }
 
     const color = COLOR[tower.def?.category] || '#ffffff';
@@ -112,22 +112,16 @@ function applyPrimary(tower, target, enemies, tracers) {
     }
 
     if (tower.pierceRange) {
-        const sorted = enemies
-            .filter(enemy => enemy !== target && !enemy.dead)
+        const sorted = enemies.filter(enemy => enemy !== target && !enemy.dead)
             .map(enemy => ({ enemy, distance: Math.hypot(enemy.mid.x - target.mid.x, enemy.mid.y - target.mid.y) }))
-            .filter(entry => entry.distance <= tower.pierceRange)
-            .sort((a, b) => a.distance - b.distance)
-            .slice(0, 2);
+            .filter(entry => entry.distance <= tower.pierceRange).sort((a, b) => a.distance - b.distance).slice(0, 2);
         sorted.forEach(({ enemy }) => deal(tower, enemy, power * (tower.pierceFalloff || 0.7), '#adb5bd'));
     }
 }
 
 export function stepTowerCombatV31(tower, enemies, dt, tracers, globalRangeMult = 1) {
     if (!tower || tower.sold) return;
-    if (tower.disabledRemaining > 0) {
-        tower.disabledRemaining = Math.max(0, tower.disabledRemaining - dt);
-        return;
-    }
+    if (tower.disabledRemaining > 0) { tower.disabledRemaining = Math.max(0, tower.disabledRemaining - dt); return; }
     const category = tower.def?.category;
     if ([CATEGORY.BANK, CATEGORY.CRYSTAL, CATEGORY.SUPPORT].includes(category)) return;
 
@@ -142,7 +136,8 @@ export function stepTowerCombatV31(tower, enemies, dt, tracers, globalRangeMult 
     else applyPrimary(tower, chooseTarget(tower, candidates), enemies, tracers);
 
     const fireRate = tower.effectiveFireRate ? tower.effectiveFireRate() : (tower.fireRate || 1);
-    tower.cooldownRemaining = Math.max(0.05, fireRate);
+    const modeFire = getGameModeRules().towerFireMult || 1;
+    tower.cooldownRemaining = Math.max(0.05, fireRate / modeFire);
 }
 
 export function stepEnemyEffectsV31(enemy, dt) {
@@ -155,8 +150,7 @@ export function stepEnemyEffectsV31(enemy, dt) {
     }
     if (enemy.v31Poison?.remaining > 0) {
         const amount = enemy.v31Poison.dps * dt;
-        enemy.health -= amount;
-        recordDamage(enemy.v31Poison.sourceType, amount);
+        enemy.health -= amount; recordDamage(enemy.v31Poison.sourceType, amount);
         enemy.v31Poison.remaining = Math.max(0, enemy.v31Poison.remaining - dt);
         if (enemy.health <= 0) enemy.dead = true;
     }
@@ -170,24 +164,14 @@ export function enemyMovementMultiplierV31(enemy) {
     const haste = enemy.bossHasteRemaining > 0 ? 1.35 : 1;
     return slow * haste;
 }
-
 export function stepTracersV31(tracers, dt) {
-    for (let i = tracers.length - 1; i >= 0; i--) {
-        tracers[i].life -= dt;
-        if (tracers[i].life <= 0) tracers.splice(i, 1);
-    }
+    for (let i = tracers.length - 1; i >= 0; i--) { tracers[i].life -= dt; if (tracers[i].life <= 0) tracers.splice(i, 1); }
 }
-
 export function drawTracersV31(ctx, tracers) {
     ctx.save();
     for (const tracer of tracers) {
-        ctx.globalAlpha = Math.min(1, tracer.life / 0.12);
-        ctx.strokeStyle = tracer.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(tracer.x1, tracer.y1);
-        ctx.lineTo(tracer.x2, tracer.y2);
-        ctx.stroke();
+        ctx.globalAlpha = Math.min(1, tracer.life / 0.12); ctx.strokeStyle = tracer.color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(tracer.x1, tracer.y1); ctx.lineTo(tracer.x2, tracer.y2); ctx.stroke();
     }
     ctx.restore();
 }

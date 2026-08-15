@@ -1,46 +1,52 @@
 const MODE_KEY = 'td3_game_mode';
 
+const mode = (key, name, desc, rules = {}) => ({ key, name, desc, rules });
+
 export const GAME_MODES = {
-    classic: { key: 'classic', name: 'Classic Defense', desc: 'The standard Tower Defense 3.1 ruleset.' },
-    overdrive: { key: 'overdrive', name: 'Overdrive', desc: 'Faster, aggressive enemies with richer kill rewards.' },
-    titan: { key: 'titan', name: 'Titan Siege', desc: 'Slow armored enemies with much larger health pools and shields.' },
-    bossrush: { key: 'bossrush', name: 'Boss Rush', desc: 'Bosses arrive every 3 waves and elite mini-bosses fill the gaps.' },
-    chaos: { key: 'chaos', name: 'Chaos Protocol', desc: 'Elite traits appear far more often and wave compositions are volatile.' },
-    draft: { key: 'draft', name: 'Tower Draft', desc: 'Each run gives you a limited random tower roster plus the two economy towers.' },
-    onelife: { key: 'onelife', name: 'One Life', desc: 'You start with exactly one life. One leak ends the run.' },
-    noeconomy: { key: 'noeconomy', name: 'No Economy', desc: 'Gold Mine and Crystal Forge are disabled; kills drip-feed upgrade Crystals.' },
-    roguelite: { key: 'roguelite', name: 'Roguelite', desc: 'Every 5 cleared waves, choose one permanent upgrade for the rest of the run.' },
+    classic: mode('classic', 'Classic Defense', 'The standard Tower Defense 3.2 ruleset.', { openingMoneyMult:1.00 }),
+    overdrive: mode('overdrive', 'Overdrive', 'Faster aggressive enemies with richer kill rewards.', { enemyHp:.88, enemySpeed:1.35, enemyAttack:1.15, enemyReward:1.2, threatMult:1.08, spawnInterval:.58, openingMoneyMult:1.08 }),
+    titan: mode('titan', 'Titan Siege', 'Slow armored enemies with huge health pools and shields.', { enemyHp:1.5, enemySpeed:.82, enemyAttack:1.3, enemyReward:1.4, threatMult:.92, spawnInterval:.9, armorBonus:3, shieldPct:.18, openingMoneyMult:1.10 }),
+    bossrush: mode('bossrush', 'Boss Rush', 'Bosses arrive every 3 waves and elite mini-bosses fill the gaps.', { enemyHp:1.08, enemySpeed:1.04, enemyAttack:1.08, enemyReward:1.15, threatMult:.95, bossInterval:3, minibossStride:4, openingMoneyMult:1.07 }),
+    chaos: mode('chaos', 'Chaos Protocol', 'Elite traits appear far more often and compositions are volatile.', { enemyHp:1.05, enemySpeed:1.03, enemyAttack:1.05, enemyReward:1.18, traitMult:2.2, openingMoneyMult:1.05 }),
+    draft: mode('draft', 'Tower Draft', 'Each run gives a limited random tower roster plus economy towers.', { draft:true, openingMoneyMult:1.00 }),
+    onelife: mode('onelife', 'One Life', 'You start with exactly one life. One leak ends the run.', { startLives:1, openingMoneyMult:1.08 }),
+    noeconomy: mode('noeconomy', 'No Economy', 'Economy towers are disabled; kills drip-feed upgrade Crystals.', { economyDisabled:true, killCrystalEvery:3, openingMoneyMult:1.12 }),
+    roguelite: mode('roguelite', 'Roguelite', 'Every 5 cleared waves, choose a permanent upgrade for that run.', { roguelite:true, openingMoneyMult:1.00 }),
+
+    swarm: mode('swarm', 'Swarm Front', 'Huge fast swarms with low individual health and extremely tight spawn spacing.', { enemyHp:.62, enemySpeed:1.18, enemyReward:.72, threatMult:1.55, spawnInterval:.32, maxUnitsMult:1.65, openingMoneyMult:1.15 }),
+    glasscannon: mode('glasscannon', 'Glass Cannon', 'Your towers hit and cycle much harder, while enemy attacks become devastating.', { towerDmgMult:1.55, towerFireMult:1.18, enemyHp:1.10, enemyAttack:2.25, enemyReward:1.18, openingMoneyMult:.90 }),
+    blackout: mode('blackout', 'Blackout', 'Tower range is heavily reduced and elite pressure rises.', { rangeMult:.68, traitMult:1.35, enemyReward:1.20, openingMoneyMult:1.15 }),
+    bounty: mode('bounty', 'Bounty Hunt', 'Enemies are tougher and waves are denser, but every kill pays a major bounty.', { enemyHp:1.35, enemyReward:1.75, threatMult:1.18, spawnInterval:.64, openingMoneyMult:.92 }),
+    speedrun: mode('speedrun', 'Speedrun', 'Rapid spawns, faster enemies and bonus rewards create short high-pressure waves.', { enemySpeed:1.22, enemyReward:1.25, threatMult:1.2, spawnInterval:.25, openingMoneyMult:1.10 }),
+    marathon: mode('marathon', 'Marathon', 'Oversized endurance waves with bosses appearing only every ten waves.', { enemyHp:1.10, threatMult:1.5, maxUnitsMult:1.5, spawnInterval:.60, bossInterval:10, enemyReward:1.15, openingMoneyMult:1.12 }),
+    fortress: mode('fortress', 'Fortress Doctrine', 'Towers gain damage and range, but the enemy army is slow, armored and extremely durable.', { towerDmgMult:1.25, rangeMult:1.20, enemyHp:1.5, enemySpeed:.80, enemyReward:1.30, armorBonus:6, threatMult:.92, openingMoneyMult:1.02 }),
+    plague: mode('plague', 'Regenerator Plague', 'Most later enemies regenerate health, demanding sustained damage and focus fire.', { enemyHp:1.12, enemyReward:1.28, forcedTrait:'regenerating', forcedTraitFromWave:6, threatMult:1.12, openingMoneyMult:1.10 }),
+    mirror: mode('mirror', 'Mirror War', 'Odd waves become fortified; even waves become hasted, forcing alternating defenses.', { alternatingTraits:true, enemyReward:1.15, threatMult:1.10, openingMoneyMult:1.05 }),
+    apocalypse: mode('apocalypse', 'Apocalypse', 'Frequent elites, bosses every four waves and brutally strong enemy attacks.', { enemyHp:1.25, enemyAttack:1.5, enemyReward:1.35, traitMult:2.8, threatMult:1.35, bossInterval:4, spawnInterval:.55, openingMoneyMult:1.20 }),
+    precision: mode('precision', 'Precision Protocol', 'Tower damage, range and fire rate rise sharply, but every enemy is significantly tougher.', { towerDmgMult:1.30, towerFireMult:1.15, rangeMult:1.18, enemyHp:1.45, enemyReward:1.30, threatMult:1.08, openingMoneyMult:.92 }),
+    splitterstorm: mode('splitterstorm', 'Splitter Storm', 'Later enemies split on death, turning every kill into a cleanup problem.', { enemyHp:.92, enemyReward:.90, forcedTrait:'splitter', forcedTraitFromWave:5, threatMult:1.28, spawnInterval:.58, openingMoneyMult:1.10 }),
 };
 
-export const GAME_MODE_ORDER = ['classic', 'overdrive', 'titan', 'bossrush', 'chaos', 'draft', 'onelife', 'noeconomy', 'roguelite'];
+export const GAME_MODE_ORDER = [
+    'classic','overdrive','titan','bossrush','chaos','draft','onelife','noeconomy','roguelite',
+    'swarm','glasscannon','blackout','bounty','speedrun','marathon','fortress','plague','mirror','apocalypse','precision','splitterstorm',
+];
 
 function readInitialMode() {
-    try {
-        const key = localStorage.getItem(MODE_KEY);
-        return GAME_MODES[key] ? key : 'classic';
-    } catch {
-        return 'classic';
-    }
+    try { const key = localStorage.getItem(MODE_KEY); return GAME_MODES[key] ? key : 'classic'; }
+    catch { return 'classic'; }
 }
 
 let currentModeKey = readInitialMode();
 let enabled = typeof window !== 'undefined' && window.location.pathname.includes('game3');
 
-export function getGameMode(key = currentModeKey) {
-    return GAME_MODES[key] || GAME_MODES.classic;
-}
-
-export function getCurrentGameMode() {
-    return getGameMode(currentModeKey);
-}
-
-export function setGameModeEnabled(value) {
-    enabled = Boolean(value);
-}
-
+export function getGameMode(key = currentModeKey) { return GAME_MODES[key] || GAME_MODES.classic; }
+export function getGameModeRules(key = currentModeKey) { return getGameMode(key).rules || {}; }
+export function getCurrentGameMode() { return getGameMode(currentModeKey); }
+export function setGameModeEnabled(value) { enabled = Boolean(value); }
 export function setGameMode(key) {
     currentModeKey = GAME_MODES[key] ? key : 'classic';
-    try { localStorage.setItem(MODE_KEY, currentModeKey); } catch { /* localStorage unavailable */ }
+    try { localStorage.setItem(MODE_KEY, currentModeKey); } catch { /* unavailable */ }
     return getCurrentGameMode();
 }
 
@@ -53,31 +59,21 @@ function scaleEnemy(enemy, { hp = 1, speed = 1, attack = 1, reward = 1 }) {
     enemy.score = Math.max(1, Math.round(enemy.score * reward));
 }
 
-// 3.1 keeps mode-wide stat identity here, while the wave director owns
-// exact elite/trait placement. That means the preview is the same plan
-// the simulation actually spawns instead of a second layer of randomness.
 export function applyGameModeToEnemy(enemy) {
     if (!enabled) return;
-    const mode = getCurrentGameMode();
-    enemy.modeKey = mode.key;
-
-    if (mode.key === 'overdrive') {
-        scaleEnemy(enemy, { hp: 0.88, speed: 1.35, attack: 1.15, reward: 1.2 });
-        enemy.modeTrait = 'Overdrive';
-        return;
-    }
-    if (mode.key === 'titan') {
-        scaleEnemy(enemy, { hp: 1.5, speed: 0.82, attack: 1.3, reward: 1.4 });
-        enemy.armor = (enemy.armor || 0) + 3;
-        if (enemy.type !== 5) enemy.shieldHP = Math.max(enemy.shieldHP || 0, Math.round(enemy.maxHealth * 0.18));
-        enemy.modeTrait = 'Titan';
-        return;
-    }
-    if (mode.key === 'bossrush') {
-        scaleEnemy(enemy, { hp: 1.08, speed: 1.04, attack: 1.08, reward: 1.15 });
-        return;
-    }
-    if (mode.key === 'chaos') {
-        scaleEnemy(enemy, { hp: 1.05, speed: 1.03, attack: 1.05, reward: 1.18 });
-    }
+    const selected = getCurrentGameMode();
+    const rules = selected.rules || {};
+    enemy.modeKey = selected.key;
+    scaleEnemy(enemy, {
+        hp: rules.enemyHp || 1,
+        speed: rules.enemySpeed || 1,
+        attack: rules.enemyAttack || 1,
+        reward: rules.enemyReward || 1,
+    });
+    if (rules.armorBonus) enemy.armor = (enemy.armor || 0) + rules.armorBonus;
+    if (rules.shieldPct && enemy.type !== 5) enemy.shieldHP = Math.max(enemy.shieldHP || 0, Math.round(enemy.maxHealth * rules.shieldPct));
+    if (selected.key === 'overdrive') enemy.modeTrait = 'Overdrive';
+    else if (selected.key === 'titan') enemy.modeTrait = 'Titan';
+    else if (selected.key === 'fortress') enemy.modeTrait = 'Fortified Army';
+    else if (selected.key === 'apocalypse') enemy.modeTrait = 'Apocalypse';
 }

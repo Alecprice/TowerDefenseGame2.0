@@ -1,16 +1,12 @@
 import { supabase } from './supabaseClient';
+import { shouldBlockCompetitiveProgress } from './adminTestMode';
 
 const SCORES_KEY = 'td_highscores';
 const NAME_KEY = 'td_playerName';
 const MAX_SCORES = 10;
 
-export function getPlayerName() {
-    try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; }
-}
-
-export function setPlayerName(name) {
-    try { localStorage.setItem(NAME_KEY, name); } catch { /* storage unavailable */ }
-}
+export function getPlayerName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } }
+export function setPlayerName(name) { try { localStorage.setItem(NAME_KEY, name); } catch { /* unavailable */ } }
 
 export function parseRunLabel(mapName = '') {
     const parts = String(mapName).split('|').map(part => part.trim());
@@ -38,11 +34,9 @@ function matchesScope(entry, scope = {}) {
 function getLocalHighScores(season = 'all', gameVersion = 'v2', scope = {}) {
     try {
         const all = JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
-        return all
-            .filter(score => (score.gameVersion || 'v2') === gameVersion)
+        return all.filter(score => (score.gameVersion || 'v2') === gameVersion)
             .filter(score => season === 'all' || (score.date || '').slice(0, 7) === season)
-            .filter(score => matchesScope(score, scope))
-            .sort((a, b) => b.score - a.score);
+            .filter(score => matchesScope(score, scope)).sort((a, b) => b.score - a.score);
     } catch { return []; }
 }
 
@@ -57,32 +51,20 @@ function saveLocalHighScore(name, score, wave, mapName, gameVersion = 'v2') {
     } catch { return getLocalHighScores(); }
 }
 
-// 3.1 encodes difficulty/mode/ranked metadata into map_name so the existing
-// Supabase schema and validation functions stay backward compatible. For a
-// scoped view we fetch a wider candidate set, filter client-side, then keep
-// the top ten. This avoids a database migration just to add leaderboard tabs.
 export async function getHighScores(season = 'all', gameVersion = 'v2', scope = {}) {
     if (!supabase) return getLocalHighScores(season, gameVersion, scope).slice(0, MAX_SCORES);
-
     const hasScope = gameVersion === 'v3' && scope && Object.values(scope).some(value => value && value !== 'all');
-    let query = supabase
-        .from('highscores')
+    let query = supabase.from('highscores')
         .select('name, score, wave, map_name, created_at, season, game_version')
-        .eq('game_version', gameVersion)
-        .order('score', { ascending: false })
-        .limit(hasScope ? 100 : MAX_SCORES);
+        .eq('game_version', gameVersion).order('score', { ascending: false }).limit(hasScope ? 100 : MAX_SCORES);
     if (season !== 'all') query = query.eq('season', season);
-
     const { data, error } = await query;
     if (error) {
         console.error('[highscores] failed to load from Supabase, using local scores:', error.message);
         return getLocalHighScores(season, gameVersion, scope).slice(0, MAX_SCORES);
     }
-
-    return data
-        .map(row => ({ name: row.name, score: row.score, wave: row.wave, mapName: row.map_name, date: row.created_at }))
-        .filter(entry => matchesScope(entry, scope))
-        .slice(0, MAX_SCORES);
+    return data.map(row => ({ name: row.name, score: row.score, wave: row.wave, mapName: row.map_name, date: row.created_at }))
+        .filter(entry => matchesScope(entry, scope)).slice(0, MAX_SCORES);
 }
 
 export function getCurrentSeasonLabel() {
@@ -91,22 +73,21 @@ export function getCurrentSeasonLabel() {
 }
 
 export async function startGameSession(mapName, gameVersion = 'v2') {
-    if (!supabase) return null;
+    if (shouldBlockCompetitiveProgress() || !supabase) return null;
     try {
         const { data, error } = await supabase.functions.invoke('start-session', { body: { mapName, gameVersion } });
         if (error) { console.error('[highscores] could not start a session:', error.message); return null; }
         return data?.sessionId ?? null;
     } catch (error) {
-        console.error('[highscores] could not start a session:', error);
-        return null;
+        console.error('[highscores] could not start a session:', error); return null;
     }
 }
 
 export async function saveHighScore(sessionId, name, score, wave, mapName, gameVersion = 'v2') {
+    if (shouldBlockCompetitiveProgress()) return getHighScores('all', gameVersion);
     const playerName = name || 'Player';
     saveLocalHighScore(playerName, score, wave, mapName, gameVersion);
     if (!supabase || !sessionId) return getHighScores('all', gameVersion);
-
     const { error } = await supabase.functions.invoke('submit-score', {
         body: { sessionId, name: playerName, score, wave, mapName, gameVersion },
     });

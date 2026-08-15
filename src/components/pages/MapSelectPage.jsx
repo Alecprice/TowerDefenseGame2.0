@@ -24,10 +24,10 @@ const MapSelectPage = ({ mode = 'v2' }) => {
 
     return (
     <div>
-        <h1>Choose a Map - {isV3 ? 'Tower Defense 3.1' : 'Tower Defense 2.0'}</h1>
+        <h1>Choose a Map - {isV3 ? 'Tower Defense 3.2' : 'Tower Defense 2.0'}</h1>
         <p className="map-select-subtitle">
             {isV3
-                ? `${mapCount} maps · ${v3TowerCount} towers · ${GAME_MODE_ORDER.length} game modes · ${totalStars} stars earned`
+                ? `${mapCount} unique maps · ${v3TowerCount} towers · ${GAME_MODE_ORDER.length} game modes · ${totalStars} / 300 stars earned`
                 : `${mapCount} maps · 15 towers · single currency`}
         </p>
         {isV3 && daily && (
@@ -47,7 +47,7 @@ const MapSelectPage = ({ mode = 'v2' }) => {
                 const card = (
                     <div className={`map-select-card ${unlocked ? '' : 'locked'}`}>
                         <MapPreview map={map} />
-                        <div className="map-select-name">{map.name}</div>
+                        <div className="map-select-name">#{index + 1} · {map.name}</div>
                         {isV3 && (
                             <div className="map-select-progress" style={{ color: '#ffd60a' }}>
                                 {'★'.repeat(stars)}{'☆'.repeat(3 - stars)} · {mechanic.name}
