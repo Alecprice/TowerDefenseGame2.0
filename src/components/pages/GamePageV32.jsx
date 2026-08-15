@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import GamePageV31 from './GamePageV31';
+import CrossDevicePolish from '../objects/CrossDevicePolish';
 import { isAdminTestMode } from '../utils/adminTestMode';
 import { getMetaBonuses } from '../utils/metaProgression';
 import { getDailyChallenge } from '../utils/dailyChallengeV31';
@@ -27,12 +28,6 @@ const GamePageV32 = () => {
         return getOpeningEconomy({ difficultyKey, modeKey, metaStartGoldBonus, draftRoster });
     }, [difficultyKey, modeKey, seed, metaStartGoldBonus]);
 
-    // GamePageV31 still owns the battle simulation. It computes its opening as
-    // (20 + metaGold) * difficulty.startMoneyMult, so install a scoped
-    // multiplier that makes that legacy formula land exactly on the 3.2
-    // balanced wallet. Set it synchronously for the child's first render and
-    // again in the effect so React StrictMode's setup/cleanup probe cannot
-    // leave the override cleared between later renders.
     const legacyOpeningBase = Math.max(1, 20 + metaStartGoldBonus);
     const scopedMultiplier = opening.totalMoney / legacyOpeningBase;
     setScopedOpeningMoneyMultiplier(difficultyKey, scopedMultiplier);
@@ -44,8 +39,9 @@ const GamePageV32 = () => {
 
     return (
         <>
-            <div style={{ maxWidth: 1500, margin: '6px auto 0', textAlign: 'center', fontFamily: 'pixel', color: '#9facbc', fontSize: 12 }}>
-                Tower Defense 3.2 · 100 unique maps · 21 game modes · 550 achievements · Opening ${opening.totalMoney}
+            <CrossDevicePolish />
+            <div style={{ maxWidth: 1500, margin: '3px auto 0', textAlign: 'center', fontFamily: 'pixel', color: '#9facbc', fontSize: 11 }}>
+                Tower Defense 3.2 · 100 unique maps · 28 towers · 21 modes · 550 achievements · Opening ${opening.totalMoney}
                 {isAdminTestMode() && <span style={{ color: '#ffd60a', marginLeft: 10 }}>QA / ADMIN — progression and competitive writes disabled</span>}
             </div>
             <GamePageV31 />
