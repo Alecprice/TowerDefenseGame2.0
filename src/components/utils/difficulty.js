@@ -1,6 +1,7 @@
 // Difficulty tiers are intentionally multi-dimensional: tougher enemies,
-// tighter starting economy and worse sell-back. GamePage/GamePageV3 already
-// consume these shared multipliers, so both rulesets stay in sync.
+// tighter starting economy and worse sell-back. Game 2 keeps consuming the
+// legacy startMoneyMult values below; Game 3.2 can install a temporary scoped
+// opening-wallet multiplier without mutating these shared definitions.
 export const DIFFICULTIES = {
     easy: {
         key: 'easy',
@@ -51,6 +52,22 @@ export const DIFFICULTIES = {
 
 export const DIFFICULTY_ORDER = ['easy', 'basic', 'normal', 'hard', 'challenge'];
 
+let scopedOpeningOverride = null;
+
+export function setScopedOpeningMoneyMultiplier(difficultyKey, multiplier) {
+    const base = DIFFICULTIES[difficultyKey] || DIFFICULTIES.basic;
+    const parsed = Number(multiplier);
+    scopedOpeningOverride = Number.isFinite(parsed) && parsed > 0
+        ? { key: base.key, multiplier: parsed }
+        : null;
+}
+
+export function clearScopedOpeningMoneyMultiplier() {
+    scopedOpeningOverride = null;
+}
+
 export function getDifficulty(key) {
-    return DIFFICULTIES[key] || DIFFICULTIES.basic;
+    const base = DIFFICULTIES[key] || DIFFICULTIES.basic;
+    if (scopedOpeningOverride?.key !== base.key) return base;
+    return { ...base, startMoneyMult: scopedOpeningOverride.multiplier };
 }
