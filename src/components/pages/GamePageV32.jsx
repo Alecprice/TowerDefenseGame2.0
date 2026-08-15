@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import GamePageV31 from './GamePageV31';
+import './GamePolishV32.css';
 import CrossDevicePolish from '../objects/CrossDevicePolish';
 import ViewportStability from '../objects/ViewportStability';
 import { isAdminTestMode } from '../utils/adminTestMode';

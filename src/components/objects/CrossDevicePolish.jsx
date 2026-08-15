@@ -19,7 +19,7 @@ const TUTORIAL_KEY = 'td3_polish_tutorial_v1';
 function deviceLabel() {
     if (typeof window === 'undefined') return 'Desktop';
     const coarse = window.matchMedia?.('(pointer: coarse)').matches;
-    const width = window.innerWidth;
+    const width = window.visualViewport?.width || window.innerWidth;
     if (coarse && width < 760) return 'Phone';
     if (coarse || width < 1180) return 'Tablet';
     return 'Desktop';
@@ -49,13 +49,14 @@ function currentMapContext() {
     const params = new URLSearchParams(window.location.search);
     const index = Math.max(0, Math.min(maps.length - 1, Number.parseInt(params.get('map'), 10) || 0));
     const map = maps[index];
-    return { index, map, mechanic: map ? getMapMechanic(index, map) : null };
+    return { map, mechanic: map ? getMapMechanic(index, map) : null };
 }
 
 function placementAt(event, towerType) {
     const board = document.querySelector('.v31-board-wrap canvas');
-    if (!board) return null;
+    if (!board || !board.isConnected || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return null;
     const rect = board.getBoundingClientRect();
+    if (rect.width < 10 || rect.height < 10) return null;
     const inside = event.clientX >= rect.left && event.clientX <= rect.right
         && event.clientY >= rect.top && event.clientY <= rect.bottom;
     if (!inside) return null;
@@ -70,12 +71,49 @@ function placementAt(event, towerType) {
     const logicalRange = def?.global ? 0 : def?.category === CATEGORY.SUPPORT ? (level?.auraRange || 0) : (level?.range || 0);
     const rangePx = logicalRange * rect.width / 900;
     return {
-        board, rect, valid, cellX, cellY, cellW, cellH, rangePx,
+        board, valid, cellX, cellY, cellW, cellH, rangePx,
         left: rect.left + cellX * cellW,
         top: rect.top + cellY * cellH,
         centerX: rect.left + (cellX + .5) * cellW,
         centerY: rect.top + (cellY + .5) * cellH,
     };
+}
+
+function dispatchBoardDrop(board, sourceEvent) {
+    if (!board?.isConnected) return false;
+    try {
+        const synthetic = new Event('pointerdown', { bubbles: true, cancelable: true });
+        Object.defineProperties(synthetic, {
+            clientX: { value: sourceEvent.clientX },
+            clientY: { value: sourceEvent.clientY },
+            pointerId: { value: sourceEvent.pointerId ?? 1 },
+            pointerType: { value: sourceEvent.pointerType || 'touch' },
+            button: { value: 0 },
+        });
+        return board.dispatchEvent(synthetic);
+    } catch {
+        return false;
+    }
+}
+
+function makeGhost(towerType) {
+    const def = TOWER_DEFS_V3[towerType];
+    const ghost = document.createElement('div');
+    ghost.className = 'td3-drag-ghost td3-safe-ghost';
+    ghost.setAttribute('aria-hidden', 'true');
+    const name = def?.name || 'Tower';
+    const price = def?.levels?.[0]?.price;
+    ghost.innerHTML = `<strong>${name}</strong>${price != null ? `<small>$${price}</small>` : ''}`;
+    document.body.appendChild(ghost);
+    return ghost;
+}
+
+function clearDrag(dragRef, setPlacement) {
+    const drag = dragRef.current;
+    if (drag) clearTimeout(drag.longPress);
+    drag?.ghost?.remove();
+    dragRef.current = null;
+    setPlacement(null);
 }
 
 const Toggle = ({ checked, onChange, label, hint }) => (
@@ -142,17 +180,24 @@ const CrossDevicePolish = () => {
         const onOnline = () => setOnline(true);
         const onOffline = () => setOnline(false);
         const onInstall = event => { event.preventDefault(); setInstallPrompt(event); };
+        const resetTransientInput = () => {
+            clearDrag(dragRef, setPlacement);
+            setDevice(deviceLabel());
+        };
         window.addEventListener('resize', resize);
-        window.addEventListener('orientationchange', resize);
         window.addEventListener('online', onOnline);
         window.addEventListener('offline', onOffline);
         window.addEventListener('beforeinstallprompt', onInstall);
+        window.addEventListener('td3:rotation-start', resetTransientInput);
+        window.addEventListener('td3:viewport-settled', resetTransientInput);
         return () => {
             window.removeEventListener('resize', resize);
-            window.removeEventListener('orientationchange', resize);
             window.removeEventListener('online', onOnline);
             window.removeEventListener('offline', onOffline);
             window.removeEventListener('beforeinstallprompt', onInstall);
+            window.removeEventListener('td3:rotation-start', resetTransientInput);
+            window.removeEventListener('td3:viewport-settled', resetTransientInput);
+            clearDrag(dragRef, setPlacement);
         };
     }, []);
 
@@ -185,9 +230,7 @@ const CrossDevicePolish = () => {
 
     useEffect(() => {
         const pauseOnHidden = () => {
-            if (!document.hidden) return;
-            const pause = buttonByText('Pause');
-            pause?.click();
+            if (document.hidden) buttonByText('Pause')?.click();
         };
         document.addEventListener('visibilitychange', pauseOnHidden);
         return () => document.removeEventListener('visibilitychange', pauseOnHidden);
@@ -195,9 +238,7 @@ const CrossDevicePolish = () => {
 
     useEffect(() => {
         const timer = window.setInterval(() => {
-            const play = buttonByText('Play');
-            setPaused(Boolean(play));
-
+            setPaused(Boolean(buttonByText('Play')));
             const bossPresent = Boolean(document.querySelector('.v31-boss'));
             if (bossPresent && !bossPresentRef.current) {
                 bossPresentRef.current = true;
@@ -229,21 +270,18 @@ const CrossDevicePolish = () => {
                 event.preventDefault();
                 (buttonByText('Pause') || buttonByText('Play'))?.click();
             } else if (/^[1-9]$/.test(event.key)) {
-                const buttons = [...document.querySelectorAll('.v31-tower-select:not(:disabled)')];
-                buttons[Number(event.key) - 1]?.click();
+                [...document.querySelectorAll('.v31-tower-select:not(:disabled)')][Number(event.key) - 1]?.click();
             } else if (event.key.toLowerCase() === 'f') {
-                const speedButton = [...document.querySelectorAll('.v31-controls button')].find(button => /x$/.test(button.textContent?.trim() || ''));
-                speedButton?.click();
+                [...document.querySelectorAll('.v31-controls button')].find(button => /x$/.test(button.textContent?.trim() || ''))?.click();
             } else if (event.key.toLowerCase() === 'u') {
                 buttonByText('Upgrade')?.click();
             } else if (event.key.toLowerCase() === 's') {
                 const sell = buttonByText('Sell');
                 if (sell && (!settings.confirmSell || window.confirm('Sell this tower?'))) sell.click();
             } else if (event.key === 'Escape') {
-                const selected = document.querySelector('.v31-tower-card.selected .v31-tower-select');
-                selected?.click();
+                document.querySelector('.v31-tower-card.selected .v31-tower-select')?.click();
                 setSettingsOpen(false);
-                setPlacement(null);
+                clearDrag(dragRef, setPlacement);
             }
         };
         window.addEventListener('keydown', onKeyDown);
@@ -252,11 +290,14 @@ const CrossDevicePolish = () => {
 
     useEffect(() => {
         const onPointerDown = event => {
-            const card = event.target.closest?.('.v31-tower-card');
-            if (!card || event.target.closest('.v31-favorite')) return;
+            if (document.documentElement.classList.contains('td3-rotating')) return;
+            const card = event.target?.closest?.('.v31-tower-card');
+            if (!card || event.target?.closest?.('.v31-favorite')) return;
             const select = card.querySelector('.v31-tower-select');
             if (!select || select.disabled || card.classList.contains('poor')) return;
             const towerType = towerTypeFromCard(card);
+            if (!towerType) return;
+            clearDrag(dragRef, setPlacement);
             const longPress = window.setTimeout(() => {
                 if (!dragRef.current || dragRef.current.moved) return;
                 showTip(select.innerText.replace(/\n+/g, ' · '));
@@ -271,19 +312,14 @@ const CrossDevicePolish = () => {
 
         const onPointerMove = event => {
             const drag = dragRef.current;
-            if (!drag || event.pointerId !== drag.pointerId) return;
-            const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
-            if (!drag.moved && distance < DRAG_THRESHOLD) return;
+            if (!drag || event.pointerId !== drag.pointerId || document.documentElement.classList.contains('td3-rotating')) return;
+            if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < DRAG_THRESHOLD) return;
             drag.moved = true;
             clearTimeout(drag.longPress);
             if (!drag.selectedForDrag) {
                 drag.selectedForDrag = true;
                 if (!drag.card.classList.contains('selected')) drag.select.click();
-                const ghost = drag.card.cloneNode(true);
-                ghost.classList.add('td3-drag-ghost');
-                ghost.querySelector('.v31-favorite')?.remove();
-                document.body.appendChild(ghost);
-                drag.ghost = ghost;
+                drag.ghost = makeGhost(drag.towerType);
             }
             const preview = placementAt(event, drag.towerType);
             setPlacement(previous => {
@@ -292,18 +328,11 @@ const CrossDevicePolish = () => {
                 if (settings.haptics && preview.valid && (!previous || previous.cellX !== preview.cellX || previous.cellY !== preview.cellY)) navigator.vibrate?.(5);
                 return preview;
             });
-            if (drag.ghost) {
+            if (drag.ghost?.isConnected) {
                 drag.ghost.style.left = `${event.clientX}px`;
                 drag.ghost.style.top = `${event.clientY}px`;
                 drag.ghost.classList.toggle('over-board', Boolean(preview));
                 drag.ghost.classList.toggle('invalid-drop', Boolean(preview && !preview.valid));
-            }
-            if (preview?.board) {
-                preview.board.dispatchEvent(new PointerEvent('pointermove', {
-                    bubbles: true, cancelable: true,
-                    clientX: event.clientX, clientY: event.clientY,
-                    pointerId: event.pointerId, pointerType: event.pointerType || 'mouse',
-                }));
             }
             event.preventDefault();
         };
@@ -312,16 +341,14 @@ const CrossDevicePolish = () => {
             const drag = dragRef.current;
             if (!drag || event.pointerId !== drag.pointerId) return;
             clearTimeout(drag.longPress);
-            if (drag.moved) {
+            if (drag.moved && !document.documentElement.classList.contains('td3-rotating')) {
                 const preview = placementAt(event, drag.towerType);
                 if (preview?.valid && preview.board) {
                     requestAnimationFrame(() => {
-                        preview.board.dispatchEvent(new PointerEvent('pointerdown', {
-                            bubbles: true, cancelable: true,
-                            clientX: event.clientX, clientY: event.clientY,
-                            pointerId: event.pointerId, pointerType: event.pointerType || 'mouse', button: 0,
-                        }));
-                        if (settings.haptics) navigator.vibrate?.(18);
+                        if (!document.documentElement.classList.contains('td3-rotating')) {
+                            dispatchBoardDrop(preview.board, event);
+                            if (settings.haptics) navigator.vibrate?.(18);
+                        }
                     });
                 } else if (preview && !preview.valid) {
                     showTip('That tile cannot hold a tower.');
@@ -330,9 +357,7 @@ const CrossDevicePolish = () => {
                 event.preventDefault();
                 event.stopPropagation();
             }
-            drag.ghost?.remove();
-            dragRef.current = null;
-            setPlacement(null);
+            clearDrag(dragRef, setPlacement);
         };
 
         document.addEventListener('pointerdown', onPointerDown, true);
@@ -344,11 +369,7 @@ const CrossDevicePolish = () => {
             document.removeEventListener('pointermove', onPointerMove, true);
             document.removeEventListener('pointerup', finishDrag, true);
             document.removeEventListener('pointercancel', finishDrag, true);
-            if (dragRef.current) {
-                clearTimeout(dragRef.current.longPress);
-                dragRef.current.ghost?.remove();
-                dragRef.current = null;
-            }
+            clearDrag(dragRef, setPlacement);
         };
     }, [settings.haptics]);
 
@@ -392,7 +413,7 @@ const CrossDevicePolish = () => {
                 <div className="td3-tutorial-card" role="dialog" aria-label="Quick tutorial">
                     <div className="td3-tutorial-progress">{tutorialStep} / 3</div>
                     {tutorialStep === 1 && <><h3>1. Place a tower</h3><p>Drag a tower from the tray onto a green build tile, or tap a tower and then tap the board.</p></>}
-                    {tutorialStep === 2 && <><h3>2. Run the defense</h3><p>Press Play. Space pauses on desktop; the game automatically pauses when your browser goes into the background.</p></>}
+                    {tutorialStep === 2 && <><h3>2. Run the defense</h3><p>Press Play. If you rotate while playing, the defense resumes automatically after the layout settles.</p></>}
                     {tutorialStep === 3 && <><h3>3. Upgrade & target</h3><p>Tap a placed tower to upgrade or sell it. Open Settings to choose First, Last, Strong, Weak, or Closest targeting.</p></>}
                     <div><button onClick={finishTutorial}>Skip</button><button className="primary" onClick={() => tutorialStep >= 3 ? finishTutorial() : setTutorialStep(step => step + 1)}>{tutorialStep >= 3 ? 'Play' : 'Next'}</button></div>
                 </div>
