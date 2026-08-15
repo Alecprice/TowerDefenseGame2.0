@@ -1,14 +1,20 @@
 {
   "short_name": "Tower Defense",
-  "name": "Tower Defense 3.0",
-  "description": "Offline-capable tower defense with maps, progression, upgrades and challenge modes.",
+  "name": "Tower Defense 3.2",
+  "description": "Offline-capable tower defense built for phone, tablet and desktop with 100 maps, 28 towers, progression, achievements and challenge modes.",
   "id": "/",
   "start_url": "/play3",
   "scope": "/",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "theme_color": "#111827",
   "background_color": "#111827",
+  "categories": ["games", "strategy"],
+  "shortcuts": [
+    { "name": "Play Tower Defense 3.2", "short_name": "Play", "url": "/play3" },
+    { "name": "Achievements", "short_name": "Achievements", "url": "/achievements" },
+    { "name": "Leaderboards", "short_name": "Scores", "url": "/scores" }
+  ],
   "icons": [
     { "src": "/favicon.ico", "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" },
     { "src": "/logo192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
