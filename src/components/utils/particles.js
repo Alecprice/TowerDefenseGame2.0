@@ -1,15 +1,18 @@
-// A small radial particle burst - currently only used for boss deaths
-// (see GamePage's death-handling block), kept as its own tiny system
-// rather than folded into damageNumbers.js since these move and decay
-// differently (velocity + drag vs. a straight float-and-fade).
+import { getUXSettings } from './gameUXSettings';
 
 export const particles = [];
 
 export function spawnBurst(x, y, opts = {}) {
-    const count = opts.count || 18;
+    const settings = getUXSettings();
+    if (settings.reducedMotion) return;
+    const requested = opts.count || 18;
+    const qualityMult = settings.effectsQuality === 'low' ? .3 : settings.effectsQuality === 'medium' ? .6 : 1;
+    const count = Math.max(2, Math.round(requested * qualityMult));
+    const cap = settings.effectsQuality === 'low' ? 45 : settings.effectsQuality === 'medium' ? 100 : 220;
     const color = opts.color || '#ff595e';
     const speed = opts.speed || 4;
     const life = opts.life || 600;
+    if (particles.length >= cap) particles.splice(0, particles.length - cap + count);
     for (let i = 0; i < count; i++) {
         const angle = (i / count) * Math.PI * 2 + Math.random() * 0.3;
         const v = speed * (0.6 + Math.random() * 0.8);
@@ -26,6 +29,11 @@ export function spawnBurst(x, y, opts = {}) {
 }
 
 export function updateAndDrawParticles(ctx) {
+    const settings = getUXSettings();
+    if (settings.reducedMotion) {
+        particles.length = 0;
+        return;
+    }
     const now = Date.now();
     for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
