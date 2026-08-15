@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import GamePageV31 from './GamePageV31';
 import CrossDevicePolish from '../objects/CrossDevicePolish';
+import ViewportStability from '../objects/ViewportStability';
 import { isAdminTestMode } from '../utils/adminTestMode';
 import { getMetaBonuses } from '../utils/metaProgression';
 import { getDailyChallenge } from '../utils/dailyChallengeV31';
@@ -39,6 +40,7 @@ const GamePageV32 = () => {
 
     return (
         <>
+            <ViewportStability />
             <CrossDevicePolish />
             <div style={{ maxWidth: 1500, margin: '3px auto 0', textAlign: 'center', fontFamily: 'pixel', color: '#9facbc', fontSize: 11 }}>
                 Tower Defense 3.2 · 100 unique maps · 28 towers · 21 modes · 550 achievements · Opening ${opening.totalMoney}
