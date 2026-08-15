@@ -2,6 +2,7 @@ import { CATEGORY } from '../objects/towerCategory';
 import { recordDamage } from './runStats';
 import { spawnDamageNumber } from './damageNumbers';
 import { getGameModeRules } from './gameModes';
+import { getTargetStrategy } from './gameUXSettings';
 
 const COLOR = {
     [CATEGORY.ATTACK]: '#ffffff',
@@ -25,11 +26,24 @@ function inRange(tower, enemy, range) {
     return dx * dx + dy * dy <= range * range;
 }
 
-function chooseTarget(tower, candidates) {
+export function chooseTargetV31(tower, candidates, strategy = null) {
     if (!candidates.length) return null;
-    if (tower.def?.targeting === 'strongest') return candidates.reduce((best, e) => !best || e.health > best.health ? e : best, null);
-    if (tower.def?.targeting === 'fastest') return candidates.reduce((best, e) => !best || e.speed > best.speed ? e : best, null);
-    return candidates.reduce((best, e) => !best || e.distance > best.distance ? e : best, null);
+    const configured = strategy || tower.targetingMode || getTargetStrategy();
+    if (configured === 'last') return candidates.reduce((best, enemy) => !best || enemy.distance < best.distance ? enemy : best, null);
+    if (configured === 'strong') return candidates.reduce((best, enemy) => !best || enemy.health > best.health ? enemy : best, null);
+    if (configured === 'weak') return candidates.reduce((best, enemy) => !best || enemy.health < best.health ? enemy : best, null);
+    if (configured === 'closest') {
+        return candidates.reduce((best, enemy) => {
+            const dx = tower.mid.x - enemy.mid.x;
+            const dy = tower.mid.y - enemy.mid.y;
+            const distanceSq = dx * dx + dy * dy;
+            if (!best || distanceSq < best.distanceSq) return { enemy, distanceSq };
+            return best;
+        }, null)?.enemy || null;
+    }
+    if (tower.def?.targeting === 'strongest') return candidates.reduce((best, enemy) => !best || enemy.health > best.health ? enemy : best, null);
+    if (tower.def?.targeting === 'fastest') return candidates.reduce((best, enemy) => !best || enemy.speed > best.speed ? enemy : best, null);
+    return candidates.reduce((best, enemy) => !best || enemy.distance > best.distance ? enemy : best, null);
 }
 
 function rawDamage(tower) {
@@ -133,7 +147,7 @@ export function stepTowerCombatV31(tower, enemies, dt, tracers, globalRangeMult 
     if (!candidates.length) return;
 
     if (tower.def?.aoe) candidates.forEach(enemy => applyPrimary(tower, enemy, enemies, tracers));
-    else applyPrimary(tower, chooseTarget(tower, candidates), enemies, tracers);
+    else applyPrimary(tower, chooseTargetV31(tower, candidates), enemies, tracers);
 
     const fireRate = tower.effectiveFireRate ? tower.effectiveFireRate() : (tower.fireRate || 1);
     const modeFire = getGameModeRules().towerFireMult || 1;
