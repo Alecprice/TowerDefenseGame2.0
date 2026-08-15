@@ -15,7 +15,6 @@ export const OPENING_BASE_MONEY = {
     challenge: 14,
 };
 
-export const STARTER_TOWER_TYPES = [1, 4, 7]; // Vanguard, Rapid Vents, Cryo Spike
 const ECONOMY_CATEGORIES = new Set([CATEGORY.BANK, CATEGORY.CRYSTAL, CATEGORY.SUPPORT]);
 
 function hashSeed(text) {
@@ -27,25 +26,17 @@ function hashSeed(text) {
     return h >>> 0;
 }
 
-function scoreType(seedHash, type) {
-    return Math.imul((seedHash ^ type) >>> 0, 2654435761) >>> 0;
-}
-
-export function buildBalancedDraftRoster(seed = 'draft') {
+// Mirrors GamePageV31's deterministic draft selection. Keeping the opening
+// wallet tied to the actual random roster means an expensive draft receives
+// exactly enough to field its cheapest combat option without globally making
+// Draft Mode rich.
+export function buildDraftRosterForEconomy(seed = 'draft') {
     const h = hashSeed(seed);
-    const starters = STARTER_TOWER_TYPES
-        .filter(type => TOWER_DEFS_V3[type])
-        .sort((a, b) => scoreType(h, a) - scoreType(h, b));
-    const guaranteedStarter = starters[0] || 1;
-
-    const randomPool = TOWER_TYPES_V3
-        .filter(type => type !== guaranteedStarter && ![21, 22].includes(type))
-        .map(type => ({ type, score: scoreType(h, type) }))
-        .sort((a, b) => a.score - b.score)
-        .slice(0, 5)
-        .map(entry => entry.type);
-
-    const selected = [guaranteedStarter, ...randomPool];
+    const scored = TOWER_TYPES_V3.map(type => ({
+        type,
+        score: Math.imul((h ^ type) >>> 0, 2654435761) >>> 0,
+    }));
+    const selected = scored.sort((a, b) => a.score - b.score).slice(0, 6).map(entry => entry.type);
     [21, 22].forEach(type => {
         if (TOWER_DEFS_V3[type] && !selected.includes(type)) selected.push(type);
     });
@@ -75,15 +66,16 @@ export function getOpeningEconomy({
     const availableTypes = draftRoster ? [...draftRoster] : TOWER_TYPES_V3;
     const cheapestCombat = cheapestCombatTowerCost(availableTypes);
 
-    // Fresh competitive starts are capped at $26. That is deliberately below
-    // the price of many specialist towers and prevents a starting wallet from
-    // buying three Vanguards ($30) before wave one.
+    // Fresh non-draft starts are capped at $26. That is deliberately below
+    // three Vanguards ($30) and below most specialist towers. Draft may exceed
+    // that ceiling only when its actual cheapest combat tower costs more.
     const pressureAdjusted = Math.round(base * modeMult);
-    const freshMoney = Math.max(cheapestCombat, Math.min(26, pressureAdjusted));
+    const cappedFresh = Math.min(26, pressureAdjusted);
+    const freshMoney = Math.max(cheapestCombat, cappedFresh);
 
     // Permanent Prospector progression still matters in unranked play, but its
     // opening contribution is capped so a maxed profile cannot trivialize the
-    // first waves. Ranked/Daily already pass zero here.
+    // first waves. Ranked/Daily pass zero here.
     const requestedMeta = Math.max(0, Number(metaStartGoldBonus) || 0);
     const metaCap = Math.floor(freshMoney * 0.4);
     const metaApplied = Math.min(requestedMeta, metaCap);
