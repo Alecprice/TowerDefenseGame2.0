@@ -1,4 +1,4 @@
-const CACHE = 'tower-defense-v6';
+const CACHE = 'tower-defense-v7';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.ico', '/logo192.png', '/logo512.png'];
 
 self.addEventListener('install', event => {
