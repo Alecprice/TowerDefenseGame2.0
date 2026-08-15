@@ -1,6 +1,5 @@
 import { maps } from '../data/maps';
-import { expansionMaps } from '../data/expansionMaps';
-import { expansionMapsV32 } from '../data/expansionMapsV32';
+import { ALL_MAPS } from '../data/mapCatalog';
 import { TOWER_DEFS_V3, TOWER_TYPES_V3 } from '../objects/towerDefsV3';
 import { EXPANSION_TOWER_DEFS_V3, EXPANSION_TOWER_TYPES_V3 } from '../objects/towerExpansionV3';
 import { Enemy } from '../objects/enemy';
@@ -12,13 +11,11 @@ export function installExpansionContent() {
     if (installed) return;
     installed = true;
 
-    const existingMapNames = new Set(maps.map(m => m.name));
-    [...expansionMaps, ...expansionMapsV32].forEach(map => {
-        if (!existingMapNames.has(map.name)) {
-            maps.push(map);
-            existingMapNames.add(map.name);
-        }
-    });
+    // Replace the mutable legacy catalog in place so every existing importer
+    // keeps the same array reference while receiving the canonical 100-map
+    // collection. Duplicate legacy paths are deterministically diversified by
+    // mapCatalog before they reach gameplay.
+    maps.splice(0, maps.length, ...ALL_MAPS);
 
     Object.assign(TOWER_DEFS_V3, EXPANSION_TOWER_DEFS_V3);
     const existingTowerTypes = new Set(TOWER_TYPES_V3);
