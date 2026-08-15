@@ -33,13 +33,13 @@ const AdminTestPanel = () => {
                 <div style={{ marginTop: 10, padding: 14, border: '1px solid #4a5665', borderRadius: 10, background: '#15191f' }}>
                     {active ? (
                         <>
-                            <div style={{ color: '#ffd60a', marginBottom: 8 }}>All maps, towers, stars, permanent upgrades, palettes and tower mastery are virtually unlocked.</div>
-                            <div style={{ color: '#aaa', fontSize: 13, marginBottom: 10 }}>QA runs cannot write achievements, mastery XP, Cores or leaderboards. Your real save remains underneath this overlay.</div>
+                            <div style={{ color: '#ffd60a', marginBottom: 8 }}>All 100 maps, 28 towers, 300 stars, 550 achievements, permanent upgrades, palettes and mastery levels are virtually unlocked. Tower placement and in-run upgrades are free.</div>
+                            <div style={{ color: '#aaa', fontSize: 13, marginBottom: 10 }}>QA runs cannot write achievements, progression, mastery XP, Cores or leaderboards. Your real save remains underneath this overlay.</div>
                             <Button variant="outline-warning" onClick={disable}>Disable QA Unlock</Button>
                         </>
                     ) : (
                         <form onSubmit={enable}>
-                            <div style={{ color: '#bbb', fontSize: 13, marginBottom: 8 }}>Testing only. Enter the admin key to temporarily unlock all progression without modifying the real save.</div>
+                            <div style={{ color: '#bbb', fontSize: 13, marginBottom: 8 }}>Testing only. Enter the admin key to temporarily unlock all game progression and free tower upgrades without modifying the real save.</div>
                             <input
                                 type="password"
                                 value={key}
