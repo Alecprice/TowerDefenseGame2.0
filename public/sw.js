@@ -1,4 +1,4 @@
-const CACHE = 'tower-defense-v5';
+const CACHE = 'tower-defense-v6';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.ico', '/logo192.png', '/logo512.png'];
 
 self.addEventListener('install', event => {
@@ -18,7 +18,6 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Documents: network first so deployments update quickly, cache fallback for offline play.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -32,7 +31,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Hashed Vite assets, audio and images are safe to cache aggressively.
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
