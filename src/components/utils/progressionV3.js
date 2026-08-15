@@ -17,6 +17,22 @@ function padArray(arr, length, fill) {
     return [...arr, ...new Array(length - arr.length).fill(fill)];
 }
 
+function normalizeTowerUnlocks(unlocks) {
+    // Fresh installs and older/migrated saves may not contain towerUnlocks at
+    // all. In that case use the real defaults instead of padding an undefined
+    // value with `false`, which previously locked every tower including the
+    // starter tower and made the entire shop non-interactive.
+    const normalized = Array.isArray(unlocks)
+        ? padArray(unlocks, TOWER_COUNT, false)
+        : [...DEFAULT_PROGRESSION.towerUnlocks];
+
+    // Tower type 1 is the guaranteed starter tower. Also repair any save that
+    // was already affected by the bad normalization and contains all-false
+    // unlocks, while preserving every other earned unlock.
+    normalized[0] = true;
+    return normalized;
+}
+
 function adminOverlay(progression) {
     if (!isAdminTestMode()) return progression;
     return {
@@ -41,12 +57,21 @@ export function getProgressionV3() {
         return adminOverlay({
             ...DEFAULT_PROGRESSION,
             ...loaded,
-            towerUnlocks: padArray(loaded.towerUnlocks, TOWER_COUNT, false),
-            mapWavesCompleted: padArray(loaded.mapWavesCompleted, MAP_COUNT, 0),
-            mapHighestWaves: padArray(loaded.mapHighestWaves, MAP_COUNT, 0),
+            towerUnlocks: normalizeTowerUnlocks(loaded.towerUnlocks),
+            mapWavesCompleted: Array.isArray(loaded.mapWavesCompleted)
+                ? padArray(loaded.mapWavesCompleted, MAP_COUNT, 0)
+                : [...DEFAULT_PROGRESSION.mapWavesCompleted],
+            mapHighestWaves: Array.isArray(loaded.mapHighestWaves)
+                ? padArray(loaded.mapHighestWaves, MAP_COUNT, 0)
+                : [...DEFAULT_PROGRESSION.mapHighestWaves],
         });
     } catch {
-        return adminOverlay({ ...DEFAULT_PROGRESSION });
+        return adminOverlay({
+            ...DEFAULT_PROGRESSION,
+            towerUnlocks: [...DEFAULT_PROGRESSION.towerUnlocks],
+            mapWavesCompleted: [...DEFAULT_PROGRESSION.mapWavesCompleted],
+            mapHighestWaves: [...DEFAULT_PROGRESSION.mapHighestWaves],
+        });
     }
 }
 
