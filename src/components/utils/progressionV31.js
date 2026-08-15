@@ -8,7 +8,16 @@ const TOWER_COUNT = 28;
 export const DIFFICULTY_RANK_V31 = { easy: 0, basic: 1, normal: 2, hard: 3, challenge: 4 };
 
 function emptyRecord() {
-    return { bestWave: 0, bestDifficulty: 'easy', modes: [], rankedBest: 0, flawlessBest: 0, runs: 0 };
+    return {
+        bestWave: 0,
+        bestDifficulty: 'easy',
+        difficultyBest: {},
+        modes: [],
+        modeBest: {},
+        rankedBest: 0,
+        flawlessBest: 0,
+        runs: 0,
+    };
 }
 
 function fresh() {
@@ -27,7 +36,13 @@ function pad(arr, length, factory) {
 }
 
 function normalizeRecord(record) {
-    return { ...emptyRecord(), ...(record || {}), modes: [...(record?.modes || [])] };
+    return {
+        ...emptyRecord(),
+        ...(record || {}),
+        modes: [...(record?.modes || [])],
+        difficultyBest: { ...(record?.difficultyBest || {}) },
+        modeBest: { ...(record?.modeBest || {}) },
+    };
 }
 
 function adminOverlay(data) {
@@ -36,7 +51,10 @@ function adminOverlay(data) {
         ...data,
         mapStars: new Array(MAP_COUNT).fill(3),
         mapRecords: new Array(MAP_COUNT).fill(null).map(() => ({
-            bestWave: 99, bestDifficulty: 'challenge', modes: [], rankedBest: 99, flawlessBest: 99, runs: 99,
+            bestWave: 99,
+            bestDifficulty: 'challenge',
+            difficultyBest: { easy: 99, basic: 99, normal: 99, hard: 99, challenge: 99 },
+            modes: [], modeBest: {}, rankedBest: 99, flawlessBest: 99, runs: 99,
         })),
     };
 }
@@ -89,15 +107,20 @@ export function recordMapResultV31(mapIndex, result) {
     const stars = calculateStars(result);
     data.mapStars[mapIndex] = Math.max(oldStars, stars);
     const record = normalizeRecord(data.mapRecords[mapIndex]);
-    record.bestWave = Math.max(record.bestWave, result.wave || 0);
+    const wave = result.wave || 0;
+    record.bestWave = Math.max(record.bestWave, wave);
     if ((DIFFICULTY_RANK_V31[result.difficultyKey] ?? 0) > (DIFFICULTY_RANK_V31[record.bestDifficulty] ?? 0)) record.bestDifficulty = result.difficultyKey;
-    if (result.modeKey && !record.modes.includes(result.modeKey)) record.modes.push(result.modeKey);
-    if (result.ranked) record.rankedBest = Math.max(record.rankedBest, result.wave || 0);
-    if ((result.livesLost || 0) === 0) record.flawlessBest = Math.max(record.flawlessBest, result.wave || 0);
+    if (result.difficultyKey) record.difficultyBest[result.difficultyKey] = Math.max(record.difficultyBest[result.difficultyKey] || 0, wave);
+    if (result.modeKey) {
+        if (!record.modes.includes(result.modeKey)) record.modes.push(result.modeKey);
+        record.modeBest[result.modeKey] = Math.max(record.modeBest[result.modeKey] || 0, wave);
+    }
+    if (result.ranked) record.rankedBest = Math.max(record.rankedBest, wave);
+    if ((result.livesLost || 0) === 0) record.flawlessBest = Math.max(record.flawlessBest, wave);
     record.runs += 1;
     data.mapRecords[mapIndex] = record;
     data.lifetime.modesPlayed = Array.from(new Set([...(data.lifetime.modesPlayed || []), result.modeKey].filter(Boolean)));
-    if (result.daily && result.wave >= 15) data.lifetime.dailyWins = (data.lifetime.dailyWins || 0) + 1;
+    if (result.daily && wave >= 15) data.lifetime.dailyWins = (data.lifetime.dailyWins || 0) + 1;
     if (result.bossArchetypes?.length) data.lifetime.bossArchetypes = Array.from(new Set([...(data.lifetime.bossArchetypes || []), ...result.bossArchetypes]));
     data.lifetime.threeStarMaps = data.mapStars.filter(value => value >= 3).length;
     saveProgressionV31(data);
