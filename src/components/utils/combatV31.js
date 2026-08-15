@@ -39,6 +39,7 @@ function deal(tower, enemy, amount, color, wasCrit = false) {
     if (!enemy || enemy.dead) return 0;
     const dealt = enemy.hit(Math.max(0, Math.round(amount)));
     if (dealt > 0) {
+        enemy.v31HitCooldown = 2;
         spawnDamageNumber(enemy.mid.x, enemy.y - 2, dealt, wasCrit ? '#ff6d00' : color);
         recordDamage(tower.type, dealt);
     }
@@ -66,8 +67,14 @@ function applyPrimary(tower, target, enemies, tracers) {
     tracers.push({ x1: tower.mid.x, y1: tower.mid.y, x2: target.mid.x, y2: target.mid.y, life: 0.12, color });
 
     if (tower.armorShred && dealt > 0) target.armor = Math.max(0, (target.armor || 0) - tower.armorShred);
-    if (tower.def?.category === CATEGORY.POISON && tower.poisonDps) target.applyPoison(tower.poisonDps, tower.poisonDuration || 3000);
-    if (tower.def?.category === CATEGORY.SLOW && tower.slowFloor) target.applySlow(tower.slowFloor);
+    if (tower.def?.category === CATEGORY.POISON && tower.poisonDps) {
+        const current = target.v31Poison?.dps || 0;
+        target.v31Poison = { dps: Math.max(current, tower.poisonDps), remaining: (tower.poisonDuration || 3000) / 1000, sourceType: tower.type };
+    }
+    if (tower.def?.category === CATEGORY.SLOW && tower.slowFloor) {
+        target.v31SlowFloor = Math.min(target.v31SlowFloor ?? 1, tower.slowFloor);
+        target.v31SlowRemaining = 1.5;
+    }
 
     if (tower.splashRadius) {
         const splash = power * (tower.splashPct || 0.5);
@@ -131,13 +138,37 @@ export function stepTowerCombatV31(tower, enemies, dt, tracers, globalRangeMult 
     if (category === CATEGORY.BOSS_HUNTER) candidates = candidates.filter(enemy => enemy.type === 5 || enemy.isModeElite || enemy.isElite);
     if (!candidates.length) return;
 
-    if (tower.def?.aoe) {
-        candidates.forEach(enemy => applyPrimary(tower, enemy, enemies, tracers));
-    } else {
-        applyPrimary(tower, chooseTarget(tower, candidates), enemies, tracers);
-    }
+    if (tower.def?.aoe) candidates.forEach(enemy => applyPrimary(tower, enemy, enemies, tracers));
+    else applyPrimary(tower, chooseTarget(tower, candidates), enemies, tracers);
+
     const fireRate = tower.effectiveFireRate ? tower.effectiveFireRate() : (tower.fireRate || 1);
     tower.cooldownRemaining = Math.max(0.05, fireRate);
+}
+
+export function stepEnemyEffectsV31(enemy, dt) {
+    if (!enemy || enemy.dead) return;
+    enemy.v31HitCooldown = Math.max(0, (enemy.v31HitCooldown || 0) - dt);
+    enemy.bossHasteRemaining = Math.max(0, (enemy.bossHasteRemaining || 0) - dt);
+    if (enemy.v31SlowRemaining > 0) {
+        enemy.v31SlowRemaining = Math.max(0, enemy.v31SlowRemaining - dt);
+        if (enemy.v31SlowRemaining === 0) enemy.v31SlowFloor = 1;
+    }
+    if (enemy.v31Poison?.remaining > 0) {
+        const amount = enemy.v31Poison.dps * dt;
+        enemy.health -= amount;
+        recordDamage(enemy.v31Poison.sourceType, amount);
+        enemy.v31Poison.remaining = Math.max(0, enemy.v31Poison.remaining - dt);
+        if (enemy.health <= 0) enemy.dead = true;
+    }
+    if (enemy.regenPerSecond && enemy.v31HitCooldown <= 0 && !enemy.dead) {
+        enemy.health = Math.min(enemy.maxHealth, enemy.health + enemy.regenPerSecond * dt);
+    }
+}
+
+export function enemyMovementMultiplierV31(enemy) {
+    const slow = enemy.v31SlowRemaining > 0 ? (enemy.v31SlowFloor || 1) : 1;
+    const haste = enemy.bossHasteRemaining > 0 ? 1.35 : 1;
+    return slow * haste;
 }
 
 export function stepTracersV31(tracers, dt) {
