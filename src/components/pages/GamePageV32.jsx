@@ -30,12 +30,17 @@ const GamePageV32 = () => {
     // GamePageV31 still owns the battle simulation. It computes its opening as
     // (20 + metaGold) * difficulty.startMoneyMult, so install a scoped
     // multiplier that makes that legacy formula land exactly on the 3.2
-    // balanced wallet. The override is removed when leaving Game 3.x and never
-    // changes the shared Game 2 difficulty definitions.
+    // balanced wallet. Set it synchronously for the child's first render and
+    // again in the effect so React StrictMode's setup/cleanup probe cannot
+    // leave the override cleared between later renders.
     const legacyOpeningBase = Math.max(1, 20 + metaStartGoldBonus);
-    setScopedOpeningMoneyMultiplier(difficultyKey, opening.totalMoney / legacyOpeningBase);
+    const scopedMultiplier = opening.totalMoney / legacyOpeningBase;
+    setScopedOpeningMoneyMultiplier(difficultyKey, scopedMultiplier);
 
-    useEffect(() => () => clearScopedOpeningMoneyMultiplier(), []);
+    useEffect(() => {
+        setScopedOpeningMoneyMultiplier(difficultyKey, scopedMultiplier);
+        return () => clearScopedOpeningMoneyMultiplier();
+    }, [difficultyKey, scopedMultiplier]);
 
     return (
         <>
