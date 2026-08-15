@@ -5,10 +5,16 @@ import {
     getUXSettings,
     saveUXSettings,
 } from '../utils/gameUXSettings';
+import { maps } from '../data/maps';
+import { TOWER_DEFS_V3 } from './towerDefsV3';
+import { CATEGORY } from './towerCategory';
+import { getMapMechanic, isBlockedCell } from '../utils/mapMechanicsV31';
+import { ACHIEVEMENTS, getUnlockedIds } from '../utils/achievements';
 import './CrossDevicePolish.css';
 
 const DRAG_THRESHOLD = 8;
 const LONG_PRESS_MS = 520;
+const TUTORIAL_KEY = 'td3_polish_tutorial_v1';
 
 function deviceLabel() {
     if (typeof window === 'undefined') return 'Desktop';
@@ -33,6 +39,45 @@ function applyDocumentSettings(settings, adaptiveLowEffects = false) {
     root.classList.toggle('td3-medium-effects', !adaptiveLowEffects && settings.effectsQuality === 'medium');
 }
 
+function towerTypeFromCard(card) {
+    const text = card?.innerText || '';
+    const match = Object.entries(TOWER_DEFS_V3).find(([, def]) => text.includes(def?.name));
+    return match ? Number(match[0]) : null;
+}
+
+function currentMapContext() {
+    const params = new URLSearchParams(window.location.search);
+    const index = Math.max(0, Math.min(maps.length - 1, Number.parseInt(params.get('map'), 10) || 0));
+    const map = maps[index];
+    return { index, map, mechanic: map ? getMapMechanic(index, map) : null };
+}
+
+function placementAt(event, towerType) {
+    const board = document.querySelector('.v31-board-wrap canvas');
+    if (!board) return null;
+    const rect = board.getBoundingClientRect();
+    const inside = event.clientX >= rect.left && event.clientX <= rect.right
+        && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    if (!inside) return null;
+    const cellW = rect.width / 18;
+    const cellH = rect.height / 12;
+    const cellX = Math.max(0, Math.min(17, Math.floor((event.clientX - rect.left) / cellW)));
+    const cellY = Math.max(0, Math.min(11, Math.floor((event.clientY - rect.top) / cellH)));
+    const { map, mechanic } = currentMapContext();
+    const valid = Boolean(map && map.grid?.[cellY]?.[cellX] === 0 && !isBlockedCell(mechanic, cellX, cellY));
+    const def = TOWER_DEFS_V3[towerType];
+    const level = def?.levels?.[0];
+    const logicalRange = def?.global ? 0 : def?.category === CATEGORY.SUPPORT ? (level?.auraRange || 0) : (level?.range || 0);
+    const rangePx = logicalRange * rect.width / 900;
+    return {
+        board, rect, valid, cellX, cellY, cellW, cellH, rangePx,
+        left: rect.left + cellX * cellW,
+        top: rect.top + cellY * cellH,
+        centerX: rect.left + (cellX + .5) * cellW,
+        centerY: rect.top + (cellY + .5) * cellH,
+    };
+}
+
 const Toggle = ({ checked, onChange, label, hint }) => (
     <label className="td3-setting-row">
         <span><b>{label}</b>{hint && <small>{hint}</small>}</span>
@@ -49,8 +94,15 @@ const CrossDevicePolish = () => {
     const [adaptiveLowEffects, setAdaptiveLowEffects] = useState(false);
     const [installPrompt, setInstallPrompt] = useState(null);
     const [tip, setTip] = useState('');
+    const [placement, setPlacement] = useState(null);
+    const [tutorialStep, setTutorialStep] = useState(0);
+    const [achievementToast, setAchievementToast] = useState(null);
+    const [bossWarning, setBossWarning] = useState(false);
+    const [paused, setPaused] = useState(true);
     const tipTimerRef = useRef(null);
     const dragRef = useRef(null);
+    const unlockedRef = useRef(new Set(getUnlockedIds()));
+    const bossPresentRef = useRef(false);
 
     const target = useMemo(
         () => TARGET_STRATEGIES.find(item => item.key === settings.targetStrategy) || TARGET_STRATEGIES[0],
@@ -68,9 +120,22 @@ const CrossDevicePolish = () => {
         tipTimerRef.current = setTimeout(() => setTip(''), 1800);
     };
 
+    const finishTutorial = () => {
+        try { localStorage.setItem(TUTORIAL_KEY, 'done'); } catch { /* unavailable */ }
+        setTutorialStep(0);
+    };
+
     useEffect(() => {
         applyDocumentSettings(settings, adaptiveLowEffects);
     }, [settings, adaptiveLowEffects]);
+
+    useEffect(() => {
+        let timer = 0;
+        try {
+            if (localStorage.getItem(TUTORIAL_KEY) !== 'done') timer = window.setTimeout(() => setTutorialStep(1), 650);
+        } catch { /* unavailable */ }
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         const resize = () => setDevice(deviceLabel());
@@ -129,6 +194,33 @@ const CrossDevicePolish = () => {
     }, []);
 
     useEffect(() => {
+        const timer = window.setInterval(() => {
+            const play = buttonByText('Play');
+            setPaused(Boolean(play));
+
+            const bossPresent = Boolean(document.querySelector('.v31-boss'));
+            if (bossPresent && !bossPresentRef.current) {
+                bossPresentRef.current = true;
+                setBossWarning(true);
+                window.setTimeout(() => setBossWarning(false), 2200);
+                if (settings.haptics) navigator.vibrate?.([35, 30, 55]);
+            } else if (!bossPresent) bossPresentRef.current = false;
+
+            const nextIds = new Set(getUnlockedIds());
+            const newlyUnlocked = [...nextIds].filter(id => !unlockedRef.current.has(id));
+            if (newlyUnlocked.length) {
+                const achievement = ACHIEVEMENTS.find(item => item.id === newlyUnlocked[0]);
+                if (achievement) {
+                    setAchievementToast(achievement);
+                    window.setTimeout(() => setAchievementToast(null), 3200);
+                }
+            }
+            unlockedRef.current = nextIds;
+        }, 700);
+        return () => clearInterval(timer);
+    }, [settings.haptics]);
+
+    useEffect(() => {
         const onKeyDown = event => {
             if (event.metaKey || event.ctrlKey || event.altKey) return;
             const tag = event.target?.tagName?.toLowerCase();
@@ -151,6 +243,7 @@ const CrossDevicePolish = () => {
                 const selected = document.querySelector('.v31-tower-card.selected .v31-tower-select');
                 selected?.click();
                 setSettingsOpen(false);
+                setPlacement(null);
             }
         };
         window.addEventListener('keydown', onKeyDown);
@@ -163,19 +256,16 @@ const CrossDevicePolish = () => {
             if (!card || event.target.closest('.v31-favorite')) return;
             const select = card.querySelector('.v31-tower-select');
             if (!select || select.disabled || card.classList.contains('poor')) return;
-            const icon = card.querySelector('canvas');
-            const rect = card.getBoundingClientRect();
+            const towerType = towerTypeFromCard(card);
             const longPress = window.setTimeout(() => {
                 if (!dragRef.current || dragRef.current.moved) return;
                 showTip(select.innerText.replace(/\n+/g, ' · '));
-                navigator.vibrate?.(settings.haptics ? 12 : 0);
+                if (settings.haptics) navigator.vibrate?.(12);
             }, LONG_PRESS_MS);
             dragRef.current = {
-                card, select, icon, pointerId: event.pointerId,
+                card, select, towerType, pointerId: event.pointerId,
                 startX: event.clientX, startY: event.clientY,
                 moved: false, selectedForDrag: false, ghost: null, longPress,
-                offsetX: event.clientX - rect.left,
-                offsetY: event.clientY - rect.top,
             };
         };
 
@@ -195,18 +285,21 @@ const CrossDevicePolish = () => {
                 document.body.appendChild(ghost);
                 drag.ghost = ghost;
             }
-            const board = document.querySelector('.v31-board-wrap canvas');
-            const boardRect = board?.getBoundingClientRect();
-            const overBoard = Boolean(boardRect
-                && event.clientX >= boardRect.left && event.clientX <= boardRect.right
-                && event.clientY >= boardRect.top && event.clientY <= boardRect.bottom);
+            const preview = placementAt(event, drag.towerType);
+            setPlacement(previous => {
+                if (!preview) return null;
+                if (previous?.cellX === preview.cellX && previous?.cellY === preview.cellY && previous?.valid === preview.valid) return previous;
+                if (settings.haptics && preview.valid && (!previous || previous.cellX !== preview.cellX || previous.cellY !== preview.cellY)) navigator.vibrate?.(5);
+                return preview;
+            });
             if (drag.ghost) {
                 drag.ghost.style.left = `${event.clientX}px`;
                 drag.ghost.style.top = `${event.clientY}px`;
-                drag.ghost.classList.toggle('over-board', overBoard);
+                drag.ghost.classList.toggle('over-board', Boolean(preview));
+                drag.ghost.classList.toggle('invalid-drop', Boolean(preview && !preview.valid));
             }
-            if (overBoard && board) {
-                board.dispatchEvent(new PointerEvent('pointermove', {
+            if (preview?.board) {
+                preview.board.dispatchEvent(new PointerEvent('pointermove', {
                     bubbles: true, cancelable: true,
                     clientX: event.clientX, clientY: event.clientY,
                     pointerId: event.pointerId, pointerType: event.pointerType || 'mouse',
@@ -220,26 +313,26 @@ const CrossDevicePolish = () => {
             if (!drag || event.pointerId !== drag.pointerId) return;
             clearTimeout(drag.longPress);
             if (drag.moved) {
-                const board = document.querySelector('.v31-board-wrap canvas');
-                const rect = board?.getBoundingClientRect();
-                const overBoard = Boolean(rect
-                    && event.clientX >= rect.left && event.clientX <= rect.right
-                    && event.clientY >= rect.top && event.clientY <= rect.bottom);
-                if (overBoard && board) {
+                const preview = placementAt(event, drag.towerType);
+                if (preview?.valid && preview.board) {
                     requestAnimationFrame(() => {
-                        board.dispatchEvent(new PointerEvent('pointerdown', {
+                        preview.board.dispatchEvent(new PointerEvent('pointerdown', {
                             bubbles: true, cancelable: true,
                             clientX: event.clientX, clientY: event.clientY,
                             pointerId: event.pointerId, pointerType: event.pointerType || 'mouse', button: 0,
                         }));
                         if (settings.haptics) navigator.vibrate?.(18);
                     });
+                } else if (preview && !preview.valid) {
+                    showTip('That tile cannot hold a tower.');
+                    if (settings.haptics) navigator.vibrate?.([20, 25, 20]);
                 }
                 event.preventDefault();
                 event.stopPropagation();
             }
             drag.ghost?.remove();
             dragRef.current = null;
+            setPlacement(null);
         };
 
         document.addEventListener('pointerdown', onPointerDown, true);
@@ -283,7 +376,27 @@ const CrossDevicePolish = () => {
                 Drag a tower onto the board or tap a tower, then tap a build tile. Long-press a tower for details.
             </div>
 
+            {paused && !settingsOpen && <button className="td3-paused-pill" onClick={() => buttonByText('Play')?.click()}>▶ Paused · Resume</button>}
             {tip && <div className="td3-longpress-tip" role="status">{tip}</div>}
+            {bossWarning && <div className="td3-event-toast boss" role="alert">⚠ BOSS INCOMING</div>}
+            {achievementToast && <div className="td3-event-toast achievement" role="status">🏆 <b>{achievementToast.name}</b><small>{achievementToast.desc}</small></div>}
+
+            {placement && (
+                <div className="td3-placement-layer" aria-hidden="true">
+                    {settings.showRangePreview && placement.rangePx > 0 && <i className="td3-range-preview" style={{ left: placement.centerX, top: placement.centerY, width: placement.rangePx * 2, height: placement.rangePx * 2 }} />}
+                    <i className={`td3-cell-preview ${placement.valid ? 'valid' : 'invalid'}`} style={{ left: placement.left, top: placement.top, width: placement.cellW, height: placement.cellH }} />
+                </div>
+            )}
+
+            {tutorialStep > 0 && (
+                <div className="td3-tutorial-card" role="dialog" aria-label="Quick tutorial">
+                    <div className="td3-tutorial-progress">{tutorialStep} / 3</div>
+                    {tutorialStep === 1 && <><h3>1. Place a tower</h3><p>Drag a tower from the tray onto a green build tile, or tap a tower and then tap the board.</p></>}
+                    {tutorialStep === 2 && <><h3>2. Run the defense</h3><p>Press Play. Space pauses on desktop; the game automatically pauses when your browser goes into the background.</p></>}
+                    {tutorialStep === 3 && <><h3>3. Upgrade & target</h3><p>Tap a placed tower to upgrade or sell it. Open Settings to choose First, Last, Strong, Weak, or Closest targeting.</p></>}
+                    <div><button onClick={finishTutorial}>Skip</button><button className="primary" onClick={() => tutorialStep >= 3 ? finishTutorial() : setTutorialStep(step => step + 1)}>{tutorialStep >= 3 ? 'Play' : 'Next'}</button></div>
+                </div>
+            )}
 
             {settingsOpen && (
                 <div className="td3-settings-backdrop" onPointerDown={event => {
@@ -294,6 +407,7 @@ const CrossDevicePolish = () => {
                         <div className="td3-settings-scroll">
                             <h3>Gameplay</h3>
                             <Toggle checked={settings.damageNumbers} onChange={value => persist({ damageNumbers: value })} label="Damage numbers" hint="Hide for a cleaner battlefield or extra performance." />
+                            <Toggle checked={settings.showRangePreview} onChange={value => persist({ showRangePreview: value })} label="Placement range preview" hint="Shows tower reach while dragging." />
                             <Toggle checked={settings.haptics} onChange={value => persist({ haptics: value })} label="Haptics" hint="Short vibration feedback on supported phones/tablets." />
                             <Toggle checked={settings.confirmSell} onChange={value => persist({ confirmSell: value })} label="Confirm keyboard selling" hint="Protects against accidental S-key sells." />
                             <Toggle checked={settings.screenShake} onChange={value => persist({ screenShake: value })} label="Screen shake" hint="Used by high-impact effects when enabled." />
