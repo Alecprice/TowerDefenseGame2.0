@@ -1,5 +1,6 @@
 import { maps } from '../data/maps';
 import { expansionMaps } from '../data/expansionMaps';
+import { expansionMapsV32 } from '../data/expansionMapsV32';
 import { TOWER_DEFS_V3, TOWER_TYPES_V3 } from '../objects/towerDefsV3';
 import { EXPANSION_TOWER_DEFS_V3, EXPANSION_TOWER_TYPES_V3 } from '../objects/towerExpansionV3';
 import { Enemy } from '../objects/enemy';
@@ -12,8 +13,11 @@ export function installExpansionContent() {
     installed = true;
 
     const existingMapNames = new Set(maps.map(m => m.name));
-    expansionMaps.forEach(map => {
-        if (!existingMapNames.has(map.name)) maps.push(map);
+    [...expansionMaps, ...expansionMapsV32].forEach(map => {
+        if (!existingMapNames.has(map.name)) {
+            maps.push(map);
+            existingMapNames.add(map.name);
+        }
     });
 
     Object.assign(TOWER_DEFS_V3, EXPANSION_TOWER_DEFS_V3);
@@ -23,9 +27,6 @@ export function installExpansionContent() {
     });
     TOWER_TYPES_V3.sort((a, b) => a - b);
 
-    // Apply selected Game 3.0 mode exactly once to each enemy at the first
-    // movement tick. This keeps the existing spawn code untouched and also
-    // covers bosses, split children, and future enemy constructors.
     if (!Enemy.prototype.__tdModeWrapped) {
         const originalMove = Enemy.prototype.move;
         Enemy.prototype.move = function expandedMove(path) {
