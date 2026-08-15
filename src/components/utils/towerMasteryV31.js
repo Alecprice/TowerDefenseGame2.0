@@ -1,26 +1,19 @@
+import { isAdminTestMode } from './adminTestMode';
+
 const KEY = 'td31_tower_mastery';
 const MAX_LEVEL = 10;
+const ADMIN_XP = MAX_LEVEL * MAX_LEVEL * 250;
 
 function read() {
     try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
 }
-
 function write(data) {
-    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* storage unavailable */ }
+    if (isAdminTestMode()) return;
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* unavailable */ }
 }
-
-export function getTowerMasteryXP(type) {
-    return read()[type] || 0;
-}
-
-export function masteryLevelForXP(xp) {
-    return Math.min(MAX_LEVEL, Math.floor(Math.sqrt(Math.max(0, xp) / 250)));
-}
-
-export function getTowerMasteryLevel(type) {
-    return masteryLevelForXP(getTowerMasteryXP(type));
-}
-
+export function getTowerMasteryXP(type) { return isAdminTestMode() ? ADMIN_XP : (read()[type] || 0); }
+export function masteryLevelForXP(xp) { return Math.min(MAX_LEVEL, Math.floor(Math.sqrt(Math.max(0, xp) / 250))); }
+export function getTowerMasteryLevel(type) { return masteryLevelForXP(getTowerMasteryXP(type)); }
 export function getMasteryProgress(type) {
     const xp = getTowerMasteryXP(type);
     const level = masteryLevelForXP(xp);
@@ -29,16 +22,14 @@ export function getMasteryProgress(type) {
     const nextXP = (level + 1) * (level + 1) * 250;
     return { level, xp, nextXP, pct: Math.round(((xp - currentXP) / Math.max(1, nextXP - currentXP)) * 100) };
 }
-
 export function addTowerMasteryXP(type, amount) {
+    if (isAdminTestMode()) return getMasteryProgress(type);
     if (!type || !amount || amount <= 0) return getMasteryProgress(type);
-    const data = read();
-    data[type] = Math.max(0, (data[type] || 0) + Math.round(amount));
-    write(data);
+    const data = read(); data[type] = Math.max(0, (data[type] || 0) + Math.round(amount)); write(data);
     return getMasteryProgress(type);
 }
-
 export function awardMasteryFromDamage(damageByType = {}) {
+    if (isAdminTestMode()) return [];
     const awards = [];
     Object.entries(damageByType).forEach(([type, damage]) => {
         const xp = Math.max(1, Math.round(Number(damage || 0) / 120));
@@ -48,8 +39,7 @@ export function awardMasteryFromDamage(damageByType = {}) {
     });
     return awards;
 }
-
 export function getTotalMasteryLevels() {
-    const data = read();
-    return Object.values(data).reduce((sum, xp) => sum + masteryLevelForXP(xp), 0);
+    if (isAdminTestMode()) return 28 * MAX_LEVEL;
+    const data = read(); return Object.values(data).reduce((sum, xp) => sum + masteryLevelForXP(xp), 0);
 }
