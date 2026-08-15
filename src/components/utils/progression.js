@@ -1,70 +1,42 @@
 // Global game progression stored in localStorage.
-// Tracks: which towers are unlocked, upgrade levels for each tower,
-// tutorial completion, and which maps have been beaten.
-
 const PROGRESSION_KEY = 'td_progression';
 const TUTORIAL_KEY = 'td_tutorial_shown';
-const MAP_COUNT = 50;
+const MAP_COUNT = 60;
 
 const DEFAULT_PROGRESSION = {
-    // Tower unlock states (index = tower type 1-10)
-    // true = unlocked, false = locked. Only the Striker (type 1) starts
-    // available - see TOWER_UNLOCK_WAVE below for when the rest unlock.
     towerUnlocks: new Array(15).fill(false).map((_, i) => i === 0),
-
-    // Waves completed on each map index
     mapWavesCompleted: new Array(MAP_COUNT).fill(0),
-
-    // Highest wave reached on each map (for display)
     mapHighestWaves: new Array(MAP_COUNT).fill(0),
 };
 
-// Pads a saved array up to `length` with `fill`, preserving whatever
-// progress was already in it - used when the map/tower roster grows
-// (e.g. 20 -> 50 maps, 10 -> 15 towers) so existing players don't lose
-// progress on the maps/towers they already had.
 function padArray(arr, length, fill) {
     if (!Array.isArray(arr)) return new Array(length).fill(fill);
     if (arr.length >= length) return arr.slice(0, length);
     return [...arr, ...new Array(length - arr.length).fill(fill)];
 }
 
-// Which global wave count unlocks each tower type. Spread out so a full
-// roster takes real, sustained progress rather than unlocking everything
-// on the first map.
 export const TOWER_UNLOCK_WAVE = {
-    7: 3,   // Frost Tower - early crowd control
-    4: 6,   // Burner
-    6: 9,   // Toxin Spire
-    3: 12,  // Blaster
-    8: 15,  // Bank
-    2: 18,  // Sniper
-    10: 21, // Beacon
-    5: 24,  // Cannon
-    9: 27,  // Bulwark
-    11: 30, // Sharpshooter Nest
-    12: 33, // Ammo Depot
-    13: 36, // Overclock Rig
-    15: 39, // Farseer Spire
-    14: 42, // Command Spire - last, and the strongest support
+    7: 3,
+    4: 6,
+    6: 9,
+    3: 12,
+    8: 15,
+    2: 18,
+    10: 21,
+    5: 24,
+    9: 27,
+    11: 30,
+    12: 33,
+    13: 36,
+    15: 39,
+    14: 42,
 };
-
-// NOTE: Tower upgrades are intentionally NOT tracked here. Upgrades are a
-// per-tower, in-round, gold-purchased thing (see tower.js / the in-game
-// popup) and reset every game. There used to be a second, automatic,
-// permanent upgrade system layered on top of that one - it was removed
-// because the two systems stomped on each other's math (a manual upgrade
-// would silently wipe out an automatic one). Tower *unlocks* below are a
-// separate, permanent concept ("is this tower type available at all") and
-// are unaffected by this.
 
 export function getProgression() {
     try {
         const raw = localStorage.getItem(PROGRESSION_KEY);
         if (!raw) return { ...DEFAULT_PROGRESSION };
         const loaded = JSON.parse(raw);
-        // Merge with defaults to handle new fields, and pad any arrays
-        // that were saved back when there were fewer maps/towers.
         return {
             ...DEFAULT_PROGRESSION,
             ...loaded,
@@ -78,11 +50,7 @@ export function getProgression() {
 }
 
 export function saveProgression(progression) {
-    try {
-        localStorage.setItem(PROGRESSION_KEY, JSON.stringify(progression));
-    } catch {
-        // localStorage unavailable
-    }
+    try { localStorage.setItem(PROGRESSION_KEY, JSON.stringify(progression)); } catch { /* localStorage unavailable */ }
 }
 
 export function isTowerUnlocked(towerType) {
@@ -109,32 +77,22 @@ export function getMapWavesCompleted(mapIndex) {
 }
 
 export function isMapUnlocked(mapIndex) {
-    if (mapIndex === 0) return true; // First map always unlocked
+    if (mapIndex === 0) return true;
     const prev = getMapWavesCompleted(mapIndex - 1);
-    return prev >= 5; // Need 5 waves on previous map to unlock next
+    return prev >= 5;
 }
 
 export function tutorialHasBeenShown() {
-    try {
-        return localStorage.getItem(TUTORIAL_KEY) === 'true';
-    } catch {
-        return false;
-    }
+    try { return localStorage.getItem(TUTORIAL_KEY) === 'true'; } catch { return false; }
 }
 
 export function markTutorialAsShown() {
-    try {
-        localStorage.setItem(TUTORIAL_KEY, 'true');
-    } catch {
-        // localStorage unavailable
-    }
+    try { localStorage.setItem(TUTORIAL_KEY, 'true'); } catch { /* localStorage unavailable */ }
 }
 
 export function resetAllProgress() {
     try {
         localStorage.removeItem(PROGRESSION_KEY);
         localStorage.removeItem(TUTORIAL_KEY);
-    } catch {
-        // localStorage unavailable
-    }
+    } catch { /* localStorage unavailable */ }
 }
