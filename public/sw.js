@@ -1,3 +1,4 @@
+// v8 refreshes installed/offline clients for the 3.2 unique map + mode audio pass.
 const CACHE = 'tower-defense-v8';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.ico', '/logo192.png', '/logo512.png'];
 
